@@ -29,45 +29,48 @@ public class AsistenteService(
                 p.Existencias))
             .ToListAsync(cancellationToken);
 
+        // Endpoint debe ser la base OpenAI-compatible de Foundry, por ejemplo:
+        // https://dspbot.services.ai.azure.com/openai/v1
         var endpoint = configuration["AI:Endpoint"];
         var key = configuration["AI:ApiKey"];
-        var deployment = configuration["AI:Deployment"];
+        var model = configuration["AI:Deployment"];
         if (string.IsNullOrWhiteSpace(endpoint) ||
             string.IsNullOrWhiteSpace(key) ||
-            string.IsNullOrWhiteSpace(deployment))
+            string.IsNullOrWhiteSpace(model))
         {
             return RespuestaFrecuente(pregunta, platillos);
         }
 
         var menu = string.Join("\n", platillos.Select(p =>
             $"- {p.Nombre}, categoría {p.Categoria}, ${p.Precio:N2}, {p.Existencias} disponibles. {p.Descripcion}"));
+        var instructions = """
+                            Eres el asistente amable de un restaurante salvadoreño. Responde siempre en español, de forma breve y útil.
+                            Puedes resolver dudas sobre cómo consultar el menú, seleccionar una mesa y enviar un pedido: el cliente elige una mesa, indica cantidades y pulsa "Enviar pedido a cocina".
+                            Para precios, ingredientes, categorías o disponibilidad, usa exclusivamente el menú proporcionado. No inventes horarios, dirección, métodos de pago, tiempos de espera, políticas, ingredientes ni información de pedidos.
+                            Si no hay datos suficientes, dilo claramente y recomienda consultar al personal. Nunca solicites contraseñas ni datos de pago.
+                            Menú disponible:
+                            """ + menu;
         var payload = new
         {
-            messages = new object[]
+            model,
+            input = new object[]
             {
                 new
                 {
                     role = "system",
-                    content = """
-                              Eres el asistente amable de un restaurante salvadoreño. Responde siempre en español, de forma breve y útil.
-                              Puedes resolver dudas sobre cómo consultar el menú, seleccionar una mesa y enviar un pedido: el cliente elige una mesa, indica cantidades y pulsa "Enviar pedido a cocina".
-                              Para precios, ingredientes, categorías o disponibilidad, usa exclusivamente el menú proporcionado. No inventes horarios, dirección, métodos de pago, tiempos de espera, políticas, ingredientes ni información de pedidos.
-                              Si no hay datos suficientes, dilo claramente y recomienda consultar al personal. Nunca solicites contraseñas ni datos de pago.
-                              Menú disponible:
-                              """ + menu
+                    content = instructions
                 },
                 new { role = "user", content = pregunta }
             },
-            max_tokens = 250,
-            temperature = 0.3
+            max_output_tokens = 250
         };
 
-        var url = $"{endpoint.TrimEnd('/')}/openai/deployments/{Uri.EscapeDataString(deployment)}/chat/completions?api-version=2024-02-01";
+        var url = $"{endpoint.TrimEnd('/')}/responses";
         using var request = new HttpRequestMessage(HttpMethod.Post, url)
         {
             Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")
         };
-        request.Headers.Add("api-key", key);
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", key);
 
         try
         {
@@ -79,11 +82,7 @@ public class AsistenteService(
             }
 
             using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
-            var answer = document.RootElement
-                .GetProperty("choices")[0]
-                .GetProperty("message")
-                .GetProperty("content")
-                .GetString();
+            var answer = ObtenerTextoRespuesta(document.RootElement);
 
             return string.IsNullOrWhiteSpace(answer)
                 ? RespuestaFrecuente(pregunta, platillos)
@@ -104,16 +103,35 @@ public class AsistenteService(
             logger.LogWarning(exception, "El servicio de IA devolvió una respuesta no válida; se usará la respuesta frecuente.");
             return RespuestaFrecuente(pregunta, platillos);
         }
-        catch (KeyNotFoundException exception)
+    }
+
+    private static string? ObtenerTextoRespuesta(JsonElement response)
+    {
+        if (!response.TryGetProperty("output", out var output) || output.ValueKind != JsonValueKind.Array)
+            return null;
+
+        var text = new StringBuilder();
+        foreach (var item in output.EnumerateArray())
         {
-            logger.LogWarning(exception, "La respuesta del servicio de IA no tenía el formato esperado; se usará la respuesta frecuente.");
-            return RespuestaFrecuente(pregunta, platillos);
+            if (!item.TryGetProperty("type", out var itemType) ||
+                itemType.GetString() != "message" ||
+                !item.TryGetProperty("content", out var content) ||
+                content.ValueKind != JsonValueKind.Array)
+                continue;
+
+            foreach (var part in content.EnumerateArray())
+            {
+                if (part.TryGetProperty("type", out var partType) &&
+                    partType.GetString() == "output_text" &&
+                    part.TryGetProperty("text", out var value) &&
+                    value.ValueKind == JsonValueKind.String)
+                {
+                    text.Append(value.GetString());
+                }
+            }
         }
-        catch (IndexOutOfRangeException exception)
-        {
-            logger.LogWarning(exception, "La respuesta del servicio de IA no tenía opciones; se usará la respuesta frecuente.");
-            return RespuestaFrecuente(pregunta, platillos);
-        }
+
+        return text.Length == 0 ? null : text.ToString();
     }
 
     private static string RespuestaFrecuente(string pregunta, IReadOnlyCollection<PlatilloDisponible> platillos)
