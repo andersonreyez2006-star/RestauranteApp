@@ -1,4 +1,5 @@
-@* Vista administrativa para consultar, editar y eliminar mesas existentes. *@
+@* Model contiene las mesas en orden numérico. Las acciones de edición/borrado envían el id
+   y el servidor impide borrar una mesa que tenga órdenes asociadas. *@
 @model IEnumerable<Mesa>
 @{ ViewData["Title"] = "Mesas"; }
 <div class="d-flex justify-content-between mb-3"><h2>Mesas</h2><a class="btn btn-primary" asp-action="Create">Nueva mesa</a></div>
@@ -6,6 +7,7 @@
 @foreach (var m in Model) {
   <tr><td>@m.NumeroMesa</td><td>@m.Capacidad</td><td>@m.Estado</td><td class="text-end">
     <a class="btn btn-sm btn-outline-secondary" asp-action="Edit" asp-route-id="@m.IdMesa">Editar</a>
+    @* La confirmación evita clics accidentales; no sustituye la comprobación de relaciones en el servidor. *@
     <form class="d-inline" method="post" asp-action="Delete" asp-route-id="@m.IdMesa" onsubmit="return confirm('¿Eliminar esta mesa?');"><button class="btn btn-sm btn-outline-danger">Eliminar</button></form>
   </td></tr> }
 </tbody></table>

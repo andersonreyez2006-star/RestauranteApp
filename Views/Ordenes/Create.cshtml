@@ -1,8 +1,10 @@
-@* Formulario interno para abrir una orden en una mesa libre seleccionada por el personal. *@
+@* Formulario interno exclusivo de administrador/mesero. ViewBag.Mesas contiene solo mesas libres;
+   la acción POST vuelve a comprobar disponibilidad antes de ocuparla y crear la orden. *@
 @{ ViewData["Title"] = "Nueva orden"; }
 <h2>Nueva orden</h2>
 <form method="post" asp-action="Create" style="max-width:380px">
   <div class="mb-3"><label class="form-label">Mesa (solo libres)</label>
+    @* El valor enviado es IdMesa; el número visible de mesa es solo la etiqueta del selector. *@
     <select name="idMesa" class="form-select" asp-items="@(ViewBag.Mesas as SelectList)"></select></div>
   <button class="btn btn-primary">Crear orden</button> <a class="btn btn-link" asp-action="Index">Cancelar</a>
 </form>

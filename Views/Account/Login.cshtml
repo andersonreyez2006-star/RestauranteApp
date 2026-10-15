@@ -1,8 +1,10 @@
-@* Formulario público de autenticación; el controlador verifica credenciales y crea la cookie de sesión. *@
+@* Pantalla pública de acceso. Los nombres correo/contrasena coinciden con los parámetros de Login(POST);
+   el controlador compara la contraseña con el hash y solo entonces emite la cookie de autenticación. *@
 @{ ViewData["Title"] = "Ingresar"; }
 <h2>Iniciar sesión</h2>
 @if (ViewBag.Error != null) { <div class="alert alert-danger">@ViewBag.Error</div> }
 <form method="post" asp-action="Login" style="max-width:380px">
+  @* El Form Tag Helper agrega el token antifalsificación que exige la acción POST. *@
   <div class="mb-3"><label class="form-label">Correo</label><input name="correo" type="email" class="form-control" required /></div>
   <div class="mb-3"><label class="form-label">Contraseña</label><input name="contrasena" type="password" class="form-control" required /></div>
   <button class="btn btn-primary">Entrar</button>

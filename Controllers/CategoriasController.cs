@@ -6,12 +6,15 @@ using RestauranteApp.Models;
 
 namespace RestauranteApp.Controllers;
 
-// Mantiene las categorías del menú; todas las operaciones requieren rol de administrador.
+// Mantiene las categorías del menú; el atributo protege tanto la consulta como las mutaciones
+// para que usuarios de cocina, caja o visitantes no modifiquen la estructura del catálogo.
 [Authorize(Roles = "Administrador")]
 public class CategoriasController(AppDbContext db) : Controller
 {
+    // Carga las categorías ordenadas y sus platillos para mostrar el conteo y decidir si puede borrarse cada una.
     public async Task<IActionResult> Index() => View(await db.Categorias.Include(c => c.Platillos).OrderBy(c => c.Nombre).ToListAsync());
 
+    // Recibe solo el nombre del formulario; recorta espacios, valida longitud y evita duplicados antes de insertar.
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(string nombre)
     {
@@ -23,6 +26,7 @@ public class CategoriasController(AppDbContext db) : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    // Actualiza el nombre de una categoría existente; un identificador inexistente devuelve 404.
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> Rename(int id, string nombre)
     {
@@ -33,6 +37,7 @@ public class CategoriasController(AppDbContext db) : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    // Elimina únicamente categorías sin platillos asociados para no romper las claves foráneas del menú.
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> Delete(int id)
     {

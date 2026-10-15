@@ -1,4 +1,5 @@
-@* Pedido público sin inicio de sesión; solo muestra opciones disponibles y limita cantidades al stock actual. *@
+@* Modelos auxiliares se extraen de ViewBag: mesas libres y platillos disponibles con stock.
+   El POST es anónimo, por eso el controlador vuelve a consultar y validar datos antes de descontar inventario. *@
 @using RestauranteApp.Models
 @{ ViewData["Title"] = "Pedido en mesa"; var mesas = ViewBag.Mesas as List<Mesa> ?? new(); var platos = ViewBag.Platillos as List<Platillo> ?? new(); }
 <header class="order-hero">
@@ -7,11 +8,13 @@
   <p>Elige una mesa, descubre algo rico y envía tu pedido directamente a cocina.</p>
   <div class="order-steps"><span><b>1</b> Elige tu mesa</span><span><b>2</b> Selecciona tus platillos</span><span><b>3</b> Envía tu pedido</span></div>
 </header>
+@* Evita mostrar un formulario que no se podría completar si no hay mesa o productos vendibles. *@
 @if (!mesas.Any()) { <div class="alert alert-info">No hay mesas libres en este momento. Consulta con nuestro equipo.</div> }
 else if (!platos.Any()) { <div class="alert alert-info">No hay platillos disponibles para pedir en este momento.</div> }
 else {
 @* El servidor vuelve a comprobar mesa, disponibilidad y existencias al recibir este formulario. *@
 <form method="post" asp-action="CreatePublic" class="customer-order-form">
+  @* Se envía la clave de mesa para no depender de que el número visible sea único o manipulable. *@
   <div class="table-picker mb-4"><label class="form-label" for="idMesa">Tu mesa</label><select class="form-select" name="idMesa" id="idMesa" required><option value="" disabled selected>Selecciona dónde estás sentado</option>@foreach (var mesa in mesas) { <option value="@mesa.IdMesa">Mesa @mesa.NumeroMesa</option> }</select></div>
   <div class="order-menu-heading"><h3>Elige tus platillos</h3><span>@platos.Count especialidades disponibles</span></div>
   <div class="row g-4">
@@ -32,6 +35,8 @@ else {
           @if (!string.IsNullOrWhiteSpace(p.Descripcion)) { <p class="dish-description">@p.Descripcion</p> }
           <p class="dish-stock">@p.Existencias disponibles hoy</p>
           <label class="form-label" for="q_@p.IdPlatillo">Cantidad</label>
+          @* El índice del campo es IdPlatillo y forma Dictionary<int,int>; max mejora UX,
+             pero el servidor vuelve a validar límite y stock porque el navegador puede alterarse. *@
           <input id="q_@p.IdPlatillo" class="form-control" type="number" name="cantidades[@p.IdPlatillo]" min="0" max="@Math.Min(20, p.Existencias)" value="0" />
         </div>
       </article>

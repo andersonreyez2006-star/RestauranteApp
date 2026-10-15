@@ -1,8 +1,10 @@
-@* El mismo formulario sirve para crear o editar una mesa según el identificador del modelo. *@
+@* Formulario compartido: IdMesa == 0 selecciona Create; de lo contrario envía a Edit con el id en ruta.
+   Los campos vinculados usan las anotaciones Range del modelo también mostradas por asp-validation-for. *@
 @model Mesa
 @{ ViewData["Title"] = Model.IdMesa == 0 ? "Nueva mesa" : "Editar mesa"; }
 <h2>@ViewData["Title"]</h2>
 <form method="post" asp-action="@(Model.IdMesa == 0 ? "Create" : "Edit")" asp-route-id="@Model.IdMesa" style="max-width:420px">
+  @* Conserva la clave al editar; en creación el valor predeterminado es cero. *@
   <input type="hidden" asp-for="IdMesa" />
   <div class="mb-3"><label asp-for="NumeroMesa" class="form-label">Número</label><input asp-for="NumeroMesa" class="form-control" /><span asp-validation-for="NumeroMesa" class="text-danger"></span></div>
   <div class="mb-3"><label asp-for="Capacidad" class="form-label"></label><input asp-for="Capacidad" class="form-control" /><span asp-validation-for="Capacidad" class="text-danger"></span></div>

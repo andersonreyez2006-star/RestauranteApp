@@ -1,4 +1,5 @@
-@* Muestra tarjetas públicas del menú o la tabla de administración según el rol. *@
+@* Model contiene platillos con categoría. Visitantes reciben tarjetas del catálogo vendible;
+   administradores reciben tabla de inventario con acciones de mantenimiento. *@
 @model IEnumerable<Platillo>
 @{ ViewData["Title"] = "Menú"; var esCliente = !User.IsInRole("Administrador"); }
 <div class="menu-heading d-flex justify-content-between align-items-end mb-4">
@@ -8,12 +9,14 @@
     <p class="text-muted mb-0">@(esCliente ? "Descubre tus favoritos, preparados al momento con ingredientes frescos." : "Administra los platillos disponibles en el restaurante.")</p>
   </div>
   @if (User.IsInRole("Administrador")) { <a class="btn btn-primary" asp-action="Create">Nuevo platillo</a> }</div>
+@* La bifurcación es solo de presentación: el filtro real de productos públicos se aplica en el controlador. *@
 @if (esCliente) {
   @if (Model.Any()) {
     <div class="row g-4 customer-menu-grid">
       @foreach (var p in Model) {
         <div class="col-sm-6 col-xl-4">
           <article class="customer-menu-card h-100">
+            @* Si falta foto se conserva el arte de reemplazo para no dejar un espacio visual vacío. *@
             @if (p.Imagen is { Length: > 0 }) {
               <img class="dish-photo" src="@Url.Action("Imagen", "Platillos", new { id = p.IdPlatillo })" alt="@p.Nombre" loading="lazy" />
             } else {

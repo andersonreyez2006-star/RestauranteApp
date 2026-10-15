@@ -1,7 +1,9 @@
-@* Resumen operativo de órdenes con mesa, responsable, estado y subtotal acumulado. *@
+@* Model es la lista de órdenes con mesa, usuario y detalles cargados. El subtotal se calcula
+   a partir de los precios históricos de las líneas; el total con IVA aparece en la factura. *@
 @model IEnumerable<Orden>
 @{ ViewData["Title"] = "Órdenes"; }
 <div class="d-flex justify-content-between mb-3"><h2>Órdenes</h2>
+  @* La interfaz solo ofrece creación al personal autorizado; el controlador además restringe la acción. *@
   @if (User.IsInRole("Administrador") || User.IsInRole("Mesero")) { <a class="btn btn-primary" asp-action="Create">Nueva orden</a> }</div>
 <table class="table table-striped"><thead><tr><th>#</th><th>Mesa</th><th>Mesero</th><th>Fecha</th><th>Estado</th><th>Total</th><th></th></tr></thead><tbody>
 @foreach (var o in Model) {

@@ -1,11 +1,13 @@
-@* Formulario compartido para alta y edición de platillos, incluida la imagen opcional. *@
+@* Formulario compartido según IdPlatillo. Los atributos del modelo se validan en servidor;
+   la carga multipart permite enviar una imagen opcional junto con los campos del platillo. *@
 @model Platillo
 @{ ViewData["Title"] = Model.IdPlatillo == 0 ? "Nuevo platillo" : "Editar platillo"; }
 <h2>@ViewData["Title"]</h2>
 <form method="post" enctype="multipart/form-data" asp-action="@(Model.IdPlatillo == 0 ? "Create" : "Edit")" asp-route-id="@Model.IdPlatillo" style="max-width:520px">
   <input type="hidden" asp-for="IdPlatillo" />
   @if (Model.Imagen is { Length: > 0 }) {
-    @* La imagen actual se conserva al guardar, salvo que se seleccione reemplazarla o quitarla. *@
+    @* La vista previa usa la acción Imagen. Marcar quitarImagen borra la foto solo si no se carga un reemplazo. *@
+    @* accept y el texto explican formatos/límite al usuario; el controlador vuelve a validar contenido y tamaño. *@
     <div class="mb-3">
       <label class="form-label d-block">Imagen actual</label>
       <img class="dish-form-preview" src="@Url.Action("Imagen", "Platillos", new { id = Model.IdPlatillo })" alt="Imagen actual de @Model.Nombre" />
