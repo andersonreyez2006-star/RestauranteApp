@@ -1,0 +1,28 @@
+# Build output
+**/bin/
+**/obj/
+**/out/
+**/publish/
+TestResults/
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Local secrets and environment settings
+.env
+.env.*
+!.env.example
+**/secrets.json
+appsettings.*.local.json
+*.publishsettings
+*.PublishSettings
+*.pfx
+
+# Logs and temporary files
+*.log
+*.tmp
+*.cache

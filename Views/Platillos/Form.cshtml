@@ -1,0 +1,15 @@
+@model Platillo
+@{ ViewData["Title"] = Model.IdPlatillo == 0 ? "Nuevo platillo" : "Editar platillo"; }
+<h2>@ViewData["Title"]</h2>
+<form method="post" asp-action="@(Model.IdPlatillo == 0 ? "Create" : "Edit")" asp-route-id="@Model.IdPlatillo" style="max-width:520px">
+  <input type="hidden" asp-for="IdPlatillo" />
+  <div class="mb-3"><label asp-for="Nombre" class="form-label"></label><input asp-for="Nombre" class="form-control" /><span asp-validation-for="Nombre" class="text-danger"></span></div>
+  <div class="mb-3"><label asp-for="Descripcion" class="form-label"></label><input asp-for="Descripcion" class="form-control" /></div>
+  <div class="mb-3"><label asp-for="Precio" class="form-label"></label><input asp-for="Precio" class="form-control" /><span asp-validation-for="Precio" class="text-danger"></span></div>
+  <div class="mb-3"><label asp-for="Existencias" class="form-label">Existencias disponibles</label><input asp-for="Existencias" class="form-control" type="number" min="0" /><span asp-validation-for="Existencias" class="text-danger"></span></div>
+  <div class="mb-3"><label asp-for="IdCategoria" class="form-label">Categoría</label>
+    <select asp-for="IdCategoria" class="form-select" asp-items="@(ViewBag.Categorias as SelectList)"></select></div>
+  <div class="mb-3"><label asp-for="Estado" class="form-label"></label>
+    <select asp-for="Estado" class="form-select"><option>Disponible</option><option>Agotado</option></select></div>
+  <button class="btn btn-primary">Guardar</button> <a class="btn btn-link" asp-action="Index">Cancelar</a>
+</form>

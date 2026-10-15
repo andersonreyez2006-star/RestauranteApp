@@ -1,0 +1,21 @@
+@using RestauranteApp.Models
+@{ ViewData["Title"] = "Pedido en mesa"; var mesas = ViewBag.Mesas as List<Mesa> ?? new(); var platos = ViewBag.Platillos as List<Platillo> ?? new(); }
+<h2>Menú y pedido en mesa</h2>
+<p class="text-muted">Elige tu mesa y las cantidades. El pedido se enviará directamente a cocina.</p>
+@if (!mesas.Any()) { <div class="alert alert-info">No hay mesas libres en este momento.</div> }
+else if (!platos.Any()) { <div class="alert alert-info">No hay platillos disponibles para pedir.</div> }
+else {
+<form method="post" asp-action="CreatePublic">
+  <div class="mb-3" style="max-width:300px"><label class="form-label" for="idMesa">Mesa</label><select class="form-select" name="idMesa" id="idMesa" required>@foreach (var mesa in mesas) { <option value="@mesa.IdMesa">Mesa @mesa.NumeroMesa</option> }</select></div>
+  <div class="row g-3">
+  @foreach (var p in platos) {
+    <div class="col-md-6 col-lg-4"><div class="card h-100"><div class="card-body">
+      <div class="d-flex justify-content-between"><h5>@p.Nombre</h5><span>$@p.Precio.ToString("N2")</span></div>
+      <div class="small text-muted mb-3">@p.Categoria?.Nombre · @p.Descripcion · @p.Existencias disponibles</div>
+      <label class="form-label" for="q_@p.IdPlatillo">Cantidad</label><input id="q_@p.IdPlatillo" class="form-control" type="number" name="cantidades[@p.IdPlatillo]" min="0" max="@Math.Min(20, p.Existencias)" value="0" />
+    </div></div></div>
+  }
+  </div>
+  <button class="btn btn-primary mt-4">Enviar pedido a cocina</button>
+</form>
+}

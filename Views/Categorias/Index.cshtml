@@ -1,0 +1,7 @@
+@model IEnumerable<RestauranteApp.Models.Categoria>
+@{ ViewData["Title"] = "Categorías"; }
+<h2>Categorías del menú</h2>
+<form method="post" asp-action="Create" class="row g-2 mb-4" style="max-width:620px"><div class="col"><input class="form-control" name="nombre" maxlength="100" placeholder="Nueva categoría" required /></div><div class="col-auto"><button class="btn btn-primary">Agregar</button></div></form>
+<table class="table table-striped"><thead><tr><th>Nombre</th><th>Platillos</th><th>Acciones</th></tr></thead><tbody>
+@foreach (var c in Model) { <tr><td><form method="post" asp-action="Rename" class="d-flex gap-2"><input type="hidden" name="id" value="@c.IdCategoria"/><input class="form-control" name="nombre" value="@c.Nombre" maxlength="100" required/><button class="btn btn-outline-secondary">Guardar</button></form></td><td>@c.Platillos.Count</td><td><form method="post" asp-action="Delete" asp-route-id="@c.IdCategoria"><button class="btn btn-sm btn-outline-danger" disabled="@(c.Platillos.Count != 0)">Eliminar</button></form></td></tr> }
+</tbody></table>

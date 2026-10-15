@@ -1,0 +1,16 @@
+@{ ViewData["Title"] = "Asistente IA"; }
+<h2>Asistente de recomendaciones</h2>
+<p class="text-muted">Cuéntanos qué se te antoja y te sugerimos platillos del menú.</p>
+<div class="input-group mb-3" style="max-width:640px">
+  <input id="q" class="form-control" placeholder="Ej: algo dulce para acompañar el café" />
+  <button id="btn" class="btn btn-primary">Preguntar</button></div>
+<div id="out" class="alert alert-secondary" style="max-width:640px;display:none"></div>
+<script>
+  const out = document.getElementById('out');
+  document.getElementById('btn').onclick = async () => {
+    const texto = document.getElementById('q').value.trim(); if (!texto) return;
+    out.style.display = 'block'; out.textContent = 'Pensando...';
+    const r = await fetch('/Asistente/Preguntar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ texto }) });
+    out.textContent = (await r.json()).respuesta;
+  };
+</script>

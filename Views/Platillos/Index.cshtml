@@ -1,0 +1,20 @@
+@model IEnumerable<Platillo>
+@{ ViewData["Title"] = "Menú"; }
+<div class="d-flex justify-content-between mb-3"><h2>Menú de platillos</h2>
+  @if (User.IsInRole("Administrador")) { <a class="btn btn-primary" asp-action="Create">Nuevo platillo</a> }</div>
+<table class="table table-striped align-middle">
+  <thead><tr><th>Nombre</th><th>Categoría</th><th>Precio</th><th>Estado</th><th>Existencias</th><th></th></tr></thead>
+  <tbody>
+  @foreach (var p in Model) {
+    <tr><td>@p.Nombre<br /><small class="text-muted">@p.Descripcion</small></td>
+        <td>@p.Categoria?.Nombre</td><td>$@p.Precio.ToString("N2")</td><td>@p.Estado</td><td>@p.Existencias</td>
+        <td class="text-end">
+          @if (User.IsInRole("Administrador")) {
+          <a class="btn btn-sm btn-outline-secondary" asp-action="Edit" asp-route-id="@p.IdPlatillo">Editar</a>
+          <form class="d-inline" method="post" asp-action="Delete" asp-route-id="@p.IdPlatillo" onsubmit="return confirm('¿Eliminar este platillo?');">
+            <button class="btn btn-sm btn-outline-danger">Eliminar</button></form>
+          }
+        </td></tr>
+  }
+  </tbody>
+</table>

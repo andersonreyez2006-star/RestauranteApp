@@ -1,0 +1,12 @@
+@model Factura
+@{ ViewData["Title"] = "Factura " + Model.IdFactura; }
+<div class="card" style="max-width:560px"><div class="card-body">
+  <h3>Factura #@Model.IdFactura</h3><p class="text-muted">@Model.Fecha.ToString("dd/MM/yyyy HH:mm") · Mesa @Model.Orden?.Mesa?.NumeroMesa</p>
+  <table class="table table-sm"><tbody>
+  @foreach (var d in Model.Orden!.Detalles) { <tr><td>@d.Cantidad × @d.Platillo?.Nombre</td><td class="text-end">$@d.Subtotal.ToString("N2")</td></tr> }
+  </tbody></table>
+  <p class="mb-1">Subtotal: $@Model.Subtotal.ToString("N2")</p><p class="mb-1">IVA (13%): $@Model.IVA.ToString("N2")</p>
+  <h5>Total: $@Model.Total.ToString("N2")</h5>
+  @foreach (var p in Model.Pagos) { <p class="text-muted mb-0">Pago: @p.MetodoPago · $@p.Monto.ToString("N2")</p> }
+</div></div>
+<a class="btn btn-link" asp-action="Index">Volver</a>

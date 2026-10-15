@@ -1,0 +1,32 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: restaurante-web
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_HTTP_PORTS: 8080
+      ConnectionStrings__Default: "Server=db,1433;Database=Restaurante;User Id=sa;Password=${SA_PASSWORD:?Define SA_PASSWORD en .env};Encrypt=True;TrustServerCertificate=True"
+      AI__Endpoint: ${AI_ENDPOINT:-}
+      AI__ApiKey: ${AI_API_KEY:-}
+      AI__Deployment: ${AI_DEPLOYMENT:-}
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: restaurante-db
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+      MSSQL_SA_PASSWORD: ${SA_PASSWORD:?Define SA_PASSWORD en .env}
+    volumes:
+      - restaurante_sql_data:/var/opt/mssql
+    restart: unless-stopped
+
+volumes:
+  restaurante_sql_data:

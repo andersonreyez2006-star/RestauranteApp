@@ -1,0 +1,8 @@
+@model IEnumerable<Factura>
+@{ ViewData["Title"] = "Facturas"; }
+<h2>Facturas emitidas</h2>
+<table class="table table-striped"><thead><tr><th>#</th><th>Fecha</th><th>Mesa</th><th>Subtotal</th><th>IVA</th><th>Total</th><th></th></tr></thead><tbody>
+@foreach (var f in Model) {
+  <tr><td>@f.IdFactura</td><td>@f.Fecha.ToString("dd/MM/yyyy HH:mm")</td><td>@f.Orden?.Mesa?.NumeroMesa</td><td>$@f.Subtotal.ToString("N2")</td><td>$@f.IVA.ToString("N2")</td><td>$@f.Total.ToString("N2")</td>
+  <td><a class="btn btn-sm btn-outline-primary" asp-action="Details" asp-route-id="@f.IdFactura">Ver</a></td></tr> }
+</tbody></table>
