@@ -50,7 +50,7 @@ using (var scope = app.Services.CreateScope())
         {
             if (db.Database.GetMigrations().Any()) db.Database.Migrate(); else db.Database.EnsureCreated();
             // Actualización aditiva para instalaciones creadas con el prototipo anterior (sin migraciones EF).
-            db.Database.ExecuteSqlRaw("IF COL_LENGTH('dbo.Platillos', 'Existencias') IS NULL ALTER TABLE dbo.Platillos ADD Existencias int NOT NULL CONSTRAINT DF_Platillos_Existencias DEFAULT 0; IF COL_LENGTH('dbo.Ordenes', 'IdUsuario') IS NOT NULL AND EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Ordenes') AND name = 'IdUsuario' AND is_nullable = 0) ALTER TABLE dbo.Ordenes ALTER COLUMN IdUsuario int NULL;");
+            db.Database.ExecuteSqlRaw("IF COL_LENGTH('dbo.Platillos', 'Existencias') IS NULL ALTER TABLE dbo.Platillos ADD Existencias int NOT NULL CONSTRAINT DF_Platillos_Existencias DEFAULT 0; IF COL_LENGTH('dbo.Platillos', 'Imagen') IS NULL ALTER TABLE dbo.Platillos ADD Imagen varbinary(max) NULL; IF COL_LENGTH('dbo.Platillos', 'ImagenContentType') IS NULL ALTER TABLE dbo.Platillos ADD ImagenContentType nvarchar(100) NULL; IF COL_LENGTH('dbo.Ordenes', 'IdUsuario') IS NOT NULL AND EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Ordenes') AND name = 'IdUsuario' AND is_nullable = 0) ALTER TABLE dbo.Ordenes ALTER COLUMN IdUsuario int NULL;");
             if (!db.Usuarios.Any())
             {
                 foreach (var (nombre, rol, clave) in new[] {
