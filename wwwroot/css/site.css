@@ -105,6 +105,13 @@ body {
   white-space: nowrap;
 }
 
+.error-nav-status {
+  margin-left: auto;
+  color: rgba(255, 250, 242, .78);
+  font-size: .85rem;
+  font-weight: 600;
+}
+
 .role-badge {
   margin-right: .55rem;
   padding: .35rem .65rem;
@@ -131,6 +138,25 @@ body {
   border-radius: 22px;
   background: var(--paper);
   box-shadow: var(--shadow);
+}
+
+.page-content.error-page-content {
+  max-width: 900px;
+  min-height: 0;
+  margin-top: clamp(1.25rem, 4vh, 3rem);
+}
+
+.error-page-content .empty-menu {
+  padding: clamp(2rem, 6vw, 3.5rem) 1.25rem;
+}
+
+.error-page-content h2 {
+  margin-bottom: 1rem;
+  font-size: clamp(1.6rem, 4vw, 2.3rem);
+}
+
+.error-page-content p {
+  line-height: 1.6;
 }
 
 .page-content h1,

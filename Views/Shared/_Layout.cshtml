@@ -18,9 +18,14 @@
   var cajero = User.IsInRole("Cajero");
   var rolActual = administrador ? "Administrador" : cocina ? "Cocina" : cajero ? "Cajero" : mesero ? "Mesero" : "";
   var controladorActual = ViewContext.RouteData.Values["controller"]?.ToString();
+  var esPaginaError = controladorActual == "Account" &&
+      ViewContext.RouteData.Values["action"]?.ToString() == "Error";
 }
 <nav class="navbar navbar-expand navbar-dark site-navbar" aria-label="Navegación principal"><div class="container">
   <a class="navbar-brand" asp-controller="Platillos" asp-action="Index"><span class="brand-mark">R</span> Restaurante</a>
+  @if (esPaginaError) {
+    <span class="error-nav-status">Aviso del sistema</span>
+  } else {
   <div class="navbar-nav me-auto">
     <a class="nav-link @(controladorActual == "Platillos" ? "active" : null)"
        aria-current="@(controladorActual == "Platillos" ? "page" : null)"
@@ -59,8 +64,11 @@
          asp-controller="Reportes" asp-action="Index">Reportes</a>
     }
   </div>
+  }
   <div class="navbar-nav account-nav">
-    @if (autenticado) {
+    @if (esPaginaError) {
+      @* Evita ofrecer navegación de módulos desde una página que informa de una solicitud fallida. *@
+    } else if (autenticado) {
       <span class="role-badge">@rolActual</span>
       <span class="navbar-text me-3">@User.Identity?.Name</span>
       <form method="post" asp-controller="Account" asp-action="Logout"><button class="btn btn-sm btn-outline-light">Salir</button></form>
@@ -70,7 +78,7 @@
          asp-controller="Account" asp-action="Login">Ingresar</a>
     }
   </div></div></nav>
-<main class="container page-content">
+<main class="container page-content @(esPaginaError ? "error-page-content" : null)">
   @if (TempData["Ok"] != null) { <div class="alert alert-success">@TempData["Ok"]</div> }
   @if (TempData["Error"] != null) { <div class="alert alert-danger">@TempData["Error"]</div> }
   @RenderBody()
