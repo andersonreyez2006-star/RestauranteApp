@@ -27,6 +27,8 @@ public class Platillo {
     [Range(0.01, 10000, ErrorMessage = "Precio inválido"), Column(TypeName = "decimal(10,2)")] public decimal Precio { get; set; }
     [Required, StringLength(30)] public string Estado { get; set; } = "Disponible";
     [Range(0, 100000)] public int Existencias { get; set; } = 0;
+    [Column(TypeName = "varbinary(max)")] public byte[]? Imagen { get; set; }
+    [StringLength(100)] public string? ImagenContentType { get; set; }
     public int IdCategoria { get; set; }
     public Categoria? Categoria { get; set; }
 }

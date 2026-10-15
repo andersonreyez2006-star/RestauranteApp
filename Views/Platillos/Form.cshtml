@@ -1,8 +1,24 @@
 @model Platillo
 @{ ViewData["Title"] = Model.IdPlatillo == 0 ? "Nuevo platillo" : "Editar platillo"; }
 <h2>@ViewData["Title"]</h2>
-<form method="post" asp-action="@(Model.IdPlatillo == 0 ? "Create" : "Edit")" asp-route-id="@Model.IdPlatillo" style="max-width:520px">
+<form method="post" enctype="multipart/form-data" asp-action="@(Model.IdPlatillo == 0 ? "Create" : "Edit")" asp-route-id="@Model.IdPlatillo" style="max-width:520px">
   <input type="hidden" asp-for="IdPlatillo" />
+  @if (Model.Imagen is { Length: > 0 }) {
+    <div class="mb-3">
+      <label class="form-label d-block">Imagen actual</label>
+      <img class="dish-form-preview" src="@Url.Action("Imagen", "Platillos", new { id = Model.IdPlatillo })" alt="Imagen actual de @Model.Nombre" />
+      <div class="form-check mt-2">
+        <input class="form-check-input" type="checkbox" name="quitarImagen" value="true" id="quitarImagen" />
+        <label class="form-check-label" for="quitarImagen">Quitar imagen actual</label>
+      </div>
+    </div>
+  }
+  <div class="mb-3">
+    <label class="form-label" for="imagen">@(Model.Imagen is { Length: > 0 } ? "Reemplazar imagen" : "Imagen del platillo")</label>
+    <input class="form-control" type="file" id="imagen" name="imagen" accept="image/jpeg,image/png,image/webp" />
+    <div class="form-text">JPG, PNG o WebP; máximo 5 MB.</div>
+    <span class="text-danger">@Html.ValidationMessage("imagen")</span>
+  </div>
   <div class="mb-3"><label asp-for="Nombre" class="form-label"></label><input asp-for="Nombre" class="form-control" /><span asp-validation-for="Nombre" class="text-danger"></span></div>
   <div class="mb-3"><label asp-for="Descripcion" class="form-label"></label><input asp-for="Descripcion" class="form-control" /></div>
   <div class="mb-3"><label asp-for="Precio" class="form-label"></label><input asp-for="Precio" class="form-control" /><span asp-validation-for="Precio" class="text-danger"></span></div>

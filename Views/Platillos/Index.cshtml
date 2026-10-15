@@ -13,7 +13,11 @@
       @foreach (var p in Model) {
         <div class="col-sm-6 col-xl-4">
           <article class="customer-menu-card h-100">
-            <div class="dish-art" aria-hidden="true"><span>✦</span></div>
+            @if (p.Imagen is { Length: > 0 }) {
+              <img class="dish-photo" src="@Url.Action("Imagen", "Platillos", new { id = p.IdPlatillo })" alt="@p.Nombre" loading="lazy" />
+            } else {
+              <div class="dish-art" aria-hidden="true"><span>✦</span></div>
+            }
             <div class="dish-content">
               <div class="d-flex justify-content-between align-items-start gap-3">
                 <span class="dish-category">@(p.Categoria?.Nombre ?? "Especialidad")</span>
@@ -35,7 +39,14 @@
   <thead><tr><th>Nombre</th><th>Categoría</th><th>Precio</th><th>Estado</th><th>Existencias</th><th></th></tr></thead>
   <tbody>
   @foreach (var p in Model) {
-    <tr><td>@p.Nombre<br /><small class="text-muted">@p.Descripcion</small></td>
+    <tr><td>
+        <div class="d-flex align-items-center gap-3">
+          @if (p.Imagen is { Length: > 0 }) {
+            <img class="dish-admin-thumb" src="@Url.Action("Imagen", "Platillos", new { id = p.IdPlatillo })" alt="" loading="lazy" />
+          }
+          <div>@p.Nombre<br /><small class="text-muted">@p.Descripcion</small></div>
+        </div>
+      </td>
         <td>@p.Categoria?.Nombre</td><td>$@p.Precio.ToString("N2")</td><td>@p.Estado</td><td>@p.Existencias</td>
         <td class="text-end">
           @if (User.IsInRole("Administrador")) {
