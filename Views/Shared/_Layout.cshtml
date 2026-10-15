@@ -43,5 +43,85 @@
   @if (TempData["Error"] != null) { <div class="alert alert-danger">@TempData["Error"]</div> }
   @RenderBody()
 </main>
+@if (!autenticado) {
+  <section id="chatbot-panel" class="chatbot-panel" aria-label="Asistente del restaurante" aria-hidden="true">
+    <header class="chatbot-header">
+      <div><span class="chatbot-status"></span><strong>Ayuda del restaurante</strong><small>Menú y pedidos</small></div>
+      <button id="chatbot-close" class="chatbot-close" type="button" aria-label="Cerrar chat">×</button>
+    </header>
+    <div id="chatbot-messages" class="chatbot-messages" aria-live="polite">
+      <div class="chat-message chat-message-assistant">¡Hola! Puedo ayudarte con el menú, precios y cómo hacer tu pedido. ¿Qué quieres saber?</div>
+    </div>
+    <form id="chatbot-form" class="chatbot-form">
+      <input id="chatbot-input" class="form-control" maxlength="500" placeholder="Escribe tu pregunta…" aria-label="Tu pregunta" required />
+      <button class="btn btn-primary" type="submit" aria-label="Enviar pregunta">Enviar</button>
+    </form>
+    <p class="chatbot-note">No compartas datos personales o de pago.</p>
+  </section>
+  <button id="chatbot-toggle" class="chatbot-toggle" type="button" aria-expanded="false">
+    <span aria-hidden="true">✦</span> ¿Necesitas ayuda?
+  </button>
+  <script>
+  (() => {
+    const panel = document.getElementById('chatbot-panel');
+    const toggle = document.getElementById('chatbot-toggle');
+    const close = document.getElementById('chatbot-close');
+    const messages = document.getElementById('chatbot-messages');
+    const form = document.getElementById('chatbot-form');
+    const input = document.getElementById('chatbot-input');
+    const button = form.querySelector('button');
+
+    const setOpen = (open) => {
+      panel.classList.toggle('is-open', open);
+      panel.setAttribute('aria-hidden', String(!open));
+      toggle.setAttribute('aria-expanded', String(open));
+      if (open) input.focus();
+    };
+
+    const addMessage = (text, kind) => {
+      const message = document.createElement('div');
+      message.className = `chat-message chat-message-${kind}`;
+      message.textContent = text;
+      messages.appendChild(message);
+      messages.scrollTop = messages.scrollHeight;
+      return message;
+    };
+
+    toggle.addEventListener('click', () => setOpen(!panel.classList.contains('is-open')));
+    close.addEventListener('click', () => setOpen(false));
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const question = input.value.trim();
+      if (!question) return;
+
+      addMessage(question, 'user');
+      input.value = '';
+      input.disabled = true;
+      button.disabled = true;
+      const pending = addMessage('Estoy buscando una respuesta…', 'assistant');
+
+      try {
+        const response = await fetch('/Asistente/Preguntar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ texto: question })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.respuesta || 'No se pudo procesar la consulta.');
+        pending.textContent = data.respuesta;
+      } catch (error) {
+        pending.textContent = error.message || 'No pude conectar ahora. Intenta de nuevo en un momento.';
+        pending.classList.add('chat-message-error');
+      } finally {
+        input.disabled = false;
+        button.disabled = false;
+        input.focus();
+        messages.scrollTop = messages.scrollHeight;
+      }
+    });
+  })();
+  </script>
+}
 </body>
 </html>
