@@ -1,9 +1,11 @@
-@* Comprobante de una factura con sus líneas, impuestos y pagos registrados. *@
+@* Model incluye Orden, Mesa, Detalles, Platillos y Pagos. Los importes se muestran desde la factura
+   persistida, no se recalculan en la vista, para que el comprobante represente el cobro emitido. *@
 @model Factura
 @{ ViewData["Title"] = "Factura " + Model.IdFactura; }
 <div class="card" style="max-width:560px"><div class="card-body">
   <h3>Factura #@Model.IdFactura</h3><p class="text-muted">@Model.Fecha.ToString("dd/MM/yyyy HH:mm") · Mesa @Model.Orden?.Mesa?.NumeroMesa</p>
   <table class="table table-sm"><tbody>
+  @* Subtotal por línea proviene de DetalleOrden; el encabezado de factura conserva IVA y total cobrados. *@
   @foreach (var d in Model.Orden!.Detalles) { <tr><td>@d.Cantidad × @d.Platillo?.Nombre</td><td class="text-end">$@d.Subtotal.ToString("N2")</td></tr> }
   </tbody></table>
   <p class="mb-1">Subtotal: $@Model.Subtotal.ToString("N2")</p><p class="mb-1">IVA (13%): $@Model.IVA.ToString("N2")</p>

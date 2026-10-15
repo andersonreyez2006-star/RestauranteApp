@@ -1,7 +1,9 @@
-@* Presenta los agregados calculados por el controlador para la fecha consultada y el stock actual. *@
+@* Model contiene métricas ya calculadas. El formulario GET envía fecha como filtro de ventas;
+   las alertas de bajo stock representan el inventario actual y no dependen de ese día. *@
 @model RestauranteApp.Models.ReporteVentasViewModel
 @{ ViewData["Title"] = "Reportes"; }
 <h2>Ventas e inventario</h2>
+@* ISO yyyy-MM-dd mantiene el enlace del input date con DateTime? fecha del controlador. *@
 <form method="get" class="d-flex gap-2 align-items-end mb-4"><div><label class="form-label" for="fecha">Fecha de venta</label><input class="form-control" type="date" id="fecha" name="fecha" value="@Model.Fecha.ToString("yyyy-MM-dd")"/></div><button class="btn btn-primary">Consultar</button></form>
 <div class="row g-3 mb-4"><div class="col-md-6"><div class="card"><div class="card-body"><div class="text-muted">Facturas del día</div><div class="fs-3">@Model.CantidadFacturas</div></div></div></div><div class="col-md-6"><div class="card"><div class="card-body"><div class="text-muted">Ventas con IVA</div><div class="fs-3">$@Model.TotalVentas.ToString("N2")</div></div></div></div></div>
 <div class="row g-4"><section class="col-md-6"><h4>Platillos más vendidos</h4>@if (!Model.MasVendidos.Any()) { <p class="text-muted">No hay ventas para esta fecha.</p> } else { <table class="table"><thead><tr><th>Platillo</th><th>Unidades</th></tr></thead><tbody>@foreach (var p in Model.MasVendidos) { <tr><td>@p.Nombre</td><td>@p.Unidades</td></tr> }</tbody></table> }</section>

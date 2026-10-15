@@ -1,4 +1,5 @@
-@* Estructura compartida: navegación por rol, mensajes de operación y asistencia pública. *@
+@* Marco común de todas las páginas. Define recursos visuales, navegación basada en claims,
+   mensajes TempData y, solo para visitantes anónimos, el widget del asistente. *@
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -9,6 +10,7 @@
 </head>
 <body>
 @{
+  // Se calcula una sola vez por render y se reutiliza para decidir qué enlaces de navegación presentar.
   var autenticado = User.Identity?.IsAuthenticated == true;
   var administrador = User.IsInRole("Administrador");
   var mesero = User.IsInRole("Mesero");
@@ -46,6 +48,7 @@
 </main>
 @if (!autenticado) {
   @* El chat solo aparece a visitantes; las respuestas se solicitan al endpoint del asistente. *@
+  @* aria-hidden/aria-expanded se sincronizan en JavaScript para lectores de pantalla y teclado. *@
   <section id="chatbot-panel" class="chatbot-panel" aria-label="Asistente del restaurante" aria-hidden="true">
     <header class="chatbot-header">
       <div><span class="chatbot-status"></span><strong>Ayuda del restaurante</strong><small>Menú y pedidos</small></div>
@@ -65,7 +68,7 @@
   </button>
   <script>
   (() => {
-    // Mantiene el estado accesible del panel y anuncia las respuestas dentro del historial.
+    // Encapsula los selectores y listeners para no crear variables globales ni interferir con otras vistas.
     const panel = document.getElementById('chatbot-panel');
     const toggle = document.getElementById('chatbot-toggle');
     const close = document.getElementById('chatbot-close');
@@ -74,6 +77,7 @@
     const input = document.getElementById('chatbot-input');
     const button = form.querySelector('button');
 
+    // Mantiene el panel visual y sus atributos ARIA sincronizados; enfoca el campo al abrir.
     const setOpen = (open) => {
       panel.classList.toggle('is-open', open);
       panel.setAttribute('aria-hidden', String(!open));
@@ -82,7 +86,7 @@
     };
 
     const addMessage = (text, kind) => {
-      // textContent evita interpretar como HTML el texto enviado o recibido en el chat.
+      // textContent trata pregunta y respuesta como texto plano, evitando inyectar HTML recibido del servidor.
       const message = document.createElement('div');
       message.className = `chat-message chat-message-${kind}`;
       message.textContent = text;
@@ -106,7 +110,8 @@
       const pending = addMessage('Estoy buscando una respuesta…', 'assistant');
 
       try {
-        // La API recibe únicamente la pregunta; el servidor valida y aplica el límite de uso.
+        // La pregunta viaja en JSON al endpoint público; validación, limitación de solicitudes y respuesta
+        // se resuelven en el servidor, nunca se confía en las restricciones visuales del formulario.
         const response = await fetch('/Asistente/Preguntar', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

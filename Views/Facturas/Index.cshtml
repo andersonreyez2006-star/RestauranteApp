@@ -1,4 +1,5 @@
-@* Listado cronológico de facturas; el detalle muestra los conceptos y pagos de cada una. *@
+@* Model es el listado de facturas ordenado por fecha descendente; Orden y Mesa se cargan en el controlador.
+   El enlace Details usa el identificador de factura, no el de la orden. *@
 @model IEnumerable<Factura>
 @{ ViewData["Title"] = "Facturas"; }
 <h2>Facturas emitidas</h2>

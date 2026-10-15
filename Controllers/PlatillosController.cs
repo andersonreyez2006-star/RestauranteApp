@@ -6,14 +6,18 @@ using RestauranteApp.Data;
 using RestauranteApp.Models;
 namespace RestauranteApp.Controllers;
 
-// Publica el menú y permite al administrador mantener platillos e imágenes.
+// El controlador requiere administrador por defecto; Index e Imagen son las únicas lecturas públicas.
+// La carga acepta archivos limitados y validados, y guarda sus bytes en la misma base que el catálogo.
 [Authorize(Roles = "Administrador")]
 public class PlatillosController(AppDbContext db) : Controller
 {
+    // Mantiene margen para encabezados multipart además del máximo de 5 MiB del contenido de imagen.
     private const long MaxImageSize = 5 * 1024 * 1024;
 
+    // Prepara el selector de categorías conservando la selección al volver a mostrar un formulario inválido.
     private void Cargar(int? sel = null) => ViewBag.Categorias = new SelectList(db.Categorias.OrderBy(c => c.Nombre), "IdCategoria", "Nombre", sel);
 
+    // Entrega el archivo binario para los <img> del menú; no almacena copias temporales ni permite caché obsoleta.
     [AllowAnonymous]
     [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     public async Task<IActionResult> Imagen(int id)
@@ -30,6 +34,7 @@ public class PlatillosController(AppDbContext db) : Controller
     }
 
     [AllowAnonymous]
+    // Los clientes ven solo productos vendibles; el administrador ve también agotados para poder editarlos.
     public async Task<IActionResult> Index()
     {
         IQueryable<Platillo> menu = db.Platillos.Include(p => p.Categoria);
@@ -38,8 +43,11 @@ public class PlatillosController(AppDbContext db) : Controller
         return View(await menu.OrderBy(p => p.Nombre).ToListAsync());
     }
 
+    // Inicializa el formulario y su lista de categorías para crear un producto.
     public IActionResult Create() { Cargar(); return View("Form", new Platillo()); }
 
+    // Recibe campos del platillo y un archivo opcional. El límite de solicitud evita aceptar cuerpos grandes
+    // antes de que la validación individual del archivo compruebe tamaño y firma real.
     [HttpPost, ValidateAntiForgeryToken, RequestSizeLimit(MaxImageSize + 64 * 1024)]
     public async Task<IActionResult> Create(Platillo p, IFormFile? imagen)
     {
@@ -60,12 +68,15 @@ public class PlatillosController(AppDbContext db) : Controller
         TempData["Ok"] = "Platillo creado."; return RedirectToAction(nameof(Index));
     }
 
+    // Carga los datos actuales para que el formulario pueda conservar y previsualizar la imagen existente.
     public async Task<IActionResult> Edit(int id)
     {
         var p = await db.Platillos.FindAsync(id); if (p == null) return NotFound();
         Cargar(p.IdCategoria); return View("Form", p);
     }
 
+    // Actualiza solo las propiedades editables para no sobrescribir valores de servidor omitidos del formulario.
+    // Si no hay archivo nuevo, conserva la foto; quitarImagen la borra solo cuando se marcó explícitamente.
     [HttpPost, ValidateAntiForgeryToken, RequestSizeLimit(MaxImageSize + 64 * 1024)]
     public async Task<IActionResult> Edit(int id, Platillo p, IFormFile? imagen, bool quitarImagen = false)
     {
@@ -105,6 +116,7 @@ public class PlatillosController(AppDbContext db) : Controller
         TempData["Ok"] = "Platillo actualizado."; return RedirectToAction(nameof(Index));
     }
 
+    // No borra un platillo referenciado por detalles de órdenes; informa el conflicto de clave foránea.
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> Delete(int id)
     {
@@ -114,6 +126,8 @@ public class PlatillosController(AppDbContext db) : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    // Lee el archivo a memoria solo después de comprobar longitud; devuelve null si no se adjuntó
+    // o agrega un error de validación si la carga infringe tamaño o formato aceptado.
     private async Task<(byte[] Contenido, string Tipo)?> LeerImagenAsync(IFormFile? imagen)
     {
         if (imagen is null || imagen.Length == 0) return null;
@@ -137,6 +151,8 @@ public class PlatillosController(AppDbContext db) : Controller
         return (bytes, tipo);
     }
 
+    // El MIME se decide por bytes mágicos (no por extensión ni por el Content-Type controlado por el cliente).
+    // Reconoce las firmas mínimas de PNG, JPEG y contenedor RIFF/WEBP.
     private static string? DetectarTipo(byte[] bytes)
     {
         // Se verifica la firma binaria y no el nombre o Content-Type enviados por el navegador.

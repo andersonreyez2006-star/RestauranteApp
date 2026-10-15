@@ -7,14 +7,17 @@ using RestauranteApp.Data;
 using RestauranteApp.Models;
 namespace RestauranteApp.Controllers;
 
-// Coordina la creación de pedidos, sus líneas, las existencias y la disponibilidad de mesas.
+// Centraliza el ciclo de pedidos para personal y clientes. Las cantidades, precios, estados de mesa
+// e inventario se vuelven a comprobar en el servidor antes de persistir cualquier cambio.
 [Authorize(Roles = "Administrador,Mesero,Cajero")]
 public class OrdenesController(AppDbContext db) : Controller
 {
+    // Resumen administrativo: incluye navegación a mesa, usuario y detalles para evitar lecturas por fila en la vista.
     public async Task<IActionResult> Index() =>
         View(await db.Ordenes.Include(x => x.Mesa).Include(x => x.Usuario).Include(x => x.Detalles).OrderByDescending(x => x.Fecha).ToListAsync());
 
     [Authorize(Roles = "Administrador,Mesero")]
+    // Formulario interno para elegir una mesa libre; la acción que guarda vuelve a comprobar el estado.
     public IActionResult Create()
     {
         ViewBag.Mesas = new SelectList(db.Mesas.Where(m => m.Estado == "Libre").OrderBy(m => m.NumeroMesa), "IdMesa", "NumeroMesa");
@@ -22,6 +25,7 @@ public class OrdenesController(AppDbContext db) : Controller
     }
 
     [AllowAnonymous]
+    // Catálogo público de pedido. Solo expone mesas libres y productos disponibles con stock positivo.
     public async Task<IActionResult> CreatePublic()
     {
         // El pedido público solo ofrece mesas libres y platillos con estado y existencias disponibles.
@@ -30,6 +34,8 @@ public class OrdenesController(AppDbContext db) : Controller
         return View();
     }
 
+    // Acepta un diccionario de idPlatillo→cantidad. Al ser anónimo, no confía en ningún precio,
+    // nombre, estado o stock enviado por el navegador: consulta las entidades y valida todo de nuevo.
     [HttpPost, AllowAnonymous, ValidateAntiForgeryToken]
     public async Task<IActionResult> CreatePublic(int idMesa, Dictionary<int, int> cantidades)
     {
@@ -39,14 +45,16 @@ public class OrdenesController(AppDbContext db) : Controller
         if (pedido.Count == 0) { TempData["Error"] = "Selecciona al menos un platillo."; return RedirectToAction(nameof(CreatePublic)); }
         var ids = pedido.Select(x => x.Key).ToList();
         var platos = await db.Platillos.Where(p => ids.Contains(p.IdPlatillo) && p.Estado == "Disponible").ToListAsync();
-        // Se revalidan precio, disponibilidad y cantidad en el servidor; los valores del formulario no son confiables.
+        // Rechaza ids que ya no están disponibles, cantidades mayores que el límite del formulario
+        // o stock insuficiente; esta validación evita pedidos manipulados desde el navegador.
         if (platos.Count != pedido.Count || pedido.Any(x => x.Value > 20 || platos.Single(p => p.IdPlatillo == x.Key).Existencias < x.Value))
         { TempData["Error"] = "Revisa las cantidades disponibles del menú."; return RedirectToAction(nameof(CreatePublic)); }
         var orden = new Orden { IdMesa = idMesa, Estado = "Pendiente" };
         foreach (var item in pedido)
         {
             var plato = platos.Single(p => p.IdPlatillo == item.Key);
-            // El detalle guarda el precio vigente para que futuras ediciones del menú no alteren la orden.
+            // Guarda precio y subtotal en la línea como valores históricos; futuras ediciones de Platillo
+            // no deben cambiar lo que el cliente pidió ni el importe que se facturará.
             plato.Existencias -= item.Value;
             if (plato.Existencias == 0) plato.Estado = "Agotado";
             orden.Detalles.Add(new DetalleOrden { IdPlatillo = plato.IdPlatillo, Cantidad = item.Value, PrecioUnitario = plato.Precio, Subtotal = plato.Precio * item.Value });
@@ -59,6 +67,7 @@ public class OrdenesController(AppDbContext db) : Controller
     }
 
     [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "Administrador,Mesero")]
+    // Abre una orden vacía desde el flujo del personal y registra quién la creó en IdUsuario.
     public async Task<IActionResult> Create(int idMesa)
     {
         var mesa = await db.Mesas.FindAsync(idMesa);
@@ -68,6 +77,7 @@ public class OrdenesController(AppDbContext db) : Controller
         return RedirectToAction(nameof(Details), new { id = orden.IdOrden });
     }
 
+    // Recupera todos los datos que necesita la vista para mostrar líneas y agregar productos.
     public async Task<IActionResult> Details(int id)
     {
         var orden = await db.Ordenes.Include(x => x.Mesa).Include(x => x.Detalles).ThenInclude(d => d.Platillo).FirstOrDefaultAsync(x => x.IdOrden == id);
@@ -77,6 +87,7 @@ public class OrdenesController(AppDbContext db) : Controller
     }
 
     [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "Administrador,Mesero")]
+    // Agrega una línea solo si la orden sigue abierta y el producto está disponible con stock suficiente.
     public async Task<IActionResult> AddItem(int id, int idPlatillo, int cantidad)
     {
         var orden = await db.Ordenes.FindAsync(id); var plato = await db.Platillos.FindAsync(idPlatillo);
@@ -84,7 +95,8 @@ public class OrdenesController(AppDbContext db) : Controller
         if (orden.Estado == "Facturada" || cantidad < 1 || plato.Estado != "Disponible")
         { TempData["Error"] = "No se pudo agregar el platillo."; return RedirectToAction(nameof(Details), new { id }); }
         if (cantidad > plato.Existencias) { TempData["Error"] = "No hay suficientes existencias."; return RedirectToAction(nameof(Details), new { id }); }
-        // La adición descuenta inventario y, si la cocina ya la había terminado, devuelve la orden a pendientes.
+        // El descuento y la línea se guardan juntos. Si se agrega algo después de marcar como Lista,
+        // la orden vuelve a Pendiente para que cocina procese el nuevo producto.
         plato.Existencias -= cantidad;
         if (plato.Existencias == 0) plato.Estado = "Agotado";
         db.Detalles.Add(new DetalleOrden { IdOrden = id, IdPlatillo = idPlatillo, Cantidad = cantidad, PrecioUnitario = plato.Precio, Subtotal = plato.Precio * cantidad });
@@ -93,12 +105,13 @@ public class OrdenesController(AppDbContext db) : Controller
     }
 
     [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "Administrador,Mesero")]
+    // Retira la línea solo antes de facturar y reintegra sus unidades al inventario.
     public async Task<IActionResult> RemoveItem(int idDetalle)
     {
         var d = await db.Detalles.Include(x => x.Orden).FirstOrDefaultAsync(x => x.IdDetalle == idDetalle);
         if (d == null) return NotFound();
         var id = d.IdOrden;
-        // Al retirar una línea antes de facturar se reintegra su cantidad al inventario.
+        // No se permite modificar una orden cerrada; en una abierta se devuelve el stock y se elimina la línea.
         if (d.Orden!.Estado != "Facturada") { var p = await db.Platillos.FindAsync(d.IdPlatillo); if (p != null) { p.Existencias += d.Cantidad; p.Estado = "Disponible"; } db.Detalles.Remove(d); await db.SaveChangesAsync(); }
         return RedirectToAction(nameof(Details), new { id });
     }

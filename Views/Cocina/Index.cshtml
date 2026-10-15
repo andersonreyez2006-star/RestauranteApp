@@ -1,13 +1,16 @@
-@* Tablero de cocina: muestra los detalles de cada orden activa y permite avanzar su preparación. *@
+@* Model ya contiene mesa, detalles y platillos relacionados. Cada tarjeta representa una orden activa;
+   el único cambio disponible es el POST Avanzar, protegido por rol y token antifalsificación. *@
 @model IEnumerable<Orden>
 @{ ViewData["Title"] = "Cocina"; }
 <h2>Pantalla de despacho</h2>
 @if (!Model.Any()) { <p class="text-muted">No hay órdenes pendientes.</p> }
 <div class="row">
+@* El orden de llegada se conserva desde la consulta del controlador para priorizar comandas antiguas. *@
 @foreach (var o in Model) {
   <div class="col-md-4 mb-3"><div class="card"><div class="card-header d-flex justify-content-between">
     <strong>Mesa @o.Mesa?.NumeroMesa · #@o.IdOrden</strong><span class="badge bg-warning text-dark">@o.Estado</span></div>
     <ul class="list-group list-group-flush">@foreach (var d in o.Detalles) { <li class="list-group-item">@d.Cantidad × @d.Platillo?.Nombre</li> }</ul>
     <div class="card-body"><form method="post" asp-action="Avanzar" asp-route-id="@o.IdOrden">
+      @* El texto del botón refleja el siguiente estado calculado por la acción del controlador. *@
       <button class="btn btn-sm btn-primary">@(o.Estado == "Pendiente" ? "Iniciar preparación" : "Marcar como lista")</button></form></div></div></div> }
 </div>
