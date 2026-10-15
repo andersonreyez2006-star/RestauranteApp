@@ -1,4 +1,6 @@
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -12,6 +14,8 @@ namespace RestauranteApp.Controllers;
 [Authorize(Roles = "Administrador,Mesero,Cajero")]
 public class OrdenesController(AppDbContext db) : Controller
 {
+    private const string PedidoPublicoCookie = "Restaurante.PedidoPublico";
+
     // Resumen administrativo: incluye navegación a mesa, usuario y detalles para evitar lecturas por fila en la vista.
     public async Task<IActionResult> Index() =>
         View(await db.Ordenes.Include(x => x.Mesa).Include(x => x.Usuario).Include(x => x.Detalles).OrderByDescending(x => x.Fecha).ToListAsync());
@@ -28,8 +32,15 @@ public class OrdenesController(AppDbContext db) : Controller
     // Catálogo público de pedido. Solo expone mesas libres y productos disponibles con stock positivo.
     public async Task<IActionResult> CreatePublic()
     {
-        // El pedido público solo ofrece mesas libres y platillos con estado y existencias disponibles.
-        ViewBag.Mesas = await db.Mesas.Where(m => m.Estado == "Libre").OrderBy(m => m.NumeroMesa).ToListAsync();
+        var mesas = await db.Mesas.Where(m => m.Estado == "Libre").ToListAsync();
+        var pedidoActivo = await GetPedidoPublicoActivoAsync();
+        if (pedidoActivo.Mesa is not null && mesas.All(m => m.IdMesa != pedidoActivo.Mesa.IdMesa))
+            mesas.Add(pedidoActivo.Mesa);
+
+        ViewBag.Mesas = mesas.OrderBy(m => m.NumeroMesa).ToList();
+        ViewBag.MesaSeleccionada = pedidoActivo.Mesa?.IdMesa;
+        ViewBag.NumeroPedidoEnviado = TempData["NumeroPedidoEnviado"];
+        ViewBag.NumeroMesaPedidoEnviado = TempData["NumeroMesaPedidoEnviado"];
         ViewBag.Platillos = await db.Platillos.Include(p => p.Categoria).Where(p => p.Estado == "Disponible" && p.Existencias > 0).OrderBy(p => p.Categoria!.Nombre).ThenBy(p => p.Nombre).ToListAsync();
         return View();
     }
@@ -40,7 +51,10 @@ public class OrdenesController(AppDbContext db) : Controller
     public async Task<IActionResult> CreatePublic(int idMesa, Dictionary<int, int> cantidades)
     {
         var mesa = await db.Mesas.FindAsync(idMesa);
-        if (mesa == null || mesa.Estado != "Libre") { TempData["Error"] = "La mesa no está disponible."; return RedirectToAction(nameof(CreatePublic)); }
+        var pedidoActivo = await GetPedidoPublicoActivoAsync();
+        var puedeContinuarEnMesa = pedidoActivo.Mesa?.IdMesa == idMesa;
+        if (mesa == null || (mesa.Estado != "Libre" && !puedeContinuarEnMesa))
+        { TempData["Error"] = "La mesa no está disponible para este pedido."; return RedirectToAction(nameof(CreatePublic)); }
         var pedido = cantidades.Where(x => x.Value > 0).ToList();
         if (pedido.Count == 0) { TempData["Error"] = "Selecciona al menos un platillo."; return RedirectToAction(nameof(CreatePublic)); }
         var ids = pedido.Select(x => x.Key).ToList();
@@ -60,11 +74,48 @@ public class OrdenesController(AppDbContext db) : Controller
             orden.Detalles.Add(new DetalleOrden { IdPlatillo = plato.IdPlatillo, Cantidad = item.Value, PrecioUnitario = plato.Precio, Subtotal = plato.Precio * item.Value });
         }
         mesa.Estado = "Ocupada";
+        if (puedeContinuarEnMesa && pedidoActivo.Orden is not null)
+            pedidoActivo.Orden.TokenPedidoPublico = null;
+        var tokenPedidoPublico = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+        orden.TokenPedidoPublico = HashTokenPedidoPublico(tokenPedidoPublico);
         db.Ordenes.Add(orden);
         await db.SaveChangesAsync();
-        TempData["Ok"] = $"Pedido #{orden.IdOrden} enviado a cocina.";
+        Response.Cookies.Append(PedidoPublicoCookie, tokenPedidoPublico,
+            new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = Request.IsHttps,
+                SameSite = SameSiteMode.Lax,
+                MaxAge = TimeSpan.FromHours(8),
+                Path = Url.Action(nameof(CreatePublic), "Ordenes") ?? "/Ordenes/CreatePublic"
+            });
+        TempData["NumeroPedidoEnviado"] = orden.IdOrden;
+        TempData["NumeroMesaPedidoEnviado"] = mesa.NumeroMesa;
+        TempData["Ok"] = $"Pedido #{orden.IdOrden} enviado a cocina. Puedes hacer otro pedido para la misma mesa mientras siga abierta.";
         return RedirectToAction(nameof(CreatePublic));
     }
+
+    private async Task<(Orden? Orden, Mesa? Mesa)> GetPedidoPublicoActivoAsync()
+    {
+        if (!Request.Cookies.TryGetValue(PedidoPublicoCookie, out var token) || string.IsNullOrWhiteSpace(token))
+            return (null, null);
+
+        if (token.Length != 64 || token.Any(c => !Uri.IsHexDigit(c)))
+            return (null, null);
+
+        var tokenHash = HashTokenPedidoPublico(token);
+        var orden = await db.Ordenes
+            .FirstOrDefaultAsync(o => o.TokenPedidoPublico == tokenHash && o.Estado != "Facturada");
+        if (orden is null)
+            return (null, null);
+
+        var mesa = await db.Mesas.AsNoTracking()
+            .FirstOrDefaultAsync(m => m.IdMesa == orden.IdMesa && m.Estado == "Ocupada");
+        return (mesa is null ? null : orden, mesa);
+    }
+
+    private static string HashTokenPedidoPublico(string token) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
 
     [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "Administrador,Mesero")]
     // Abre una orden vacía desde el flujo del personal y registra quién la creó en IdUsuario.

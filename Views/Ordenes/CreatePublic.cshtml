@@ -5,17 +5,27 @@
 <header class="order-hero">
   <span class="eyebrow">Una buena elección empieza aquí</span>
   <h2>Arma tu pedido</h2>
-  <p>Elige una mesa, descubre algo rico y envía tu pedido directamente a cocina.</p>
+  <p>Elige una mesa, descubre algo rico y envía tu pedido directamente a cocina. Puedes pedir varias veces sin iniciar sesión mientras tu mesa siga abierta.</p>
   <div class="order-steps"><span><b>1</b> Elige tu mesa</span><span><b>2</b> Selecciona tus platillos</span><span><b>3</b> Envía tu pedido</span></div>
 </header>
+@if (ViewBag.NumeroPedidoEnviado != null && ViewBag.NumeroMesaPedidoEnviado != null) {
+  <section class="order-confirmation mb-4" role="status">
+    <div>
+      <span class="eyebrow">Pedido recibido</span>
+      <h3>Pedido #@ViewBag.NumeroPedidoEnviado enviado a cocina</h3>
+      <p>¿Quieres algo más? La mesa @ViewBag.NumeroMesaPedidoEnviado ya está seleccionada para tu siguiente pedido.</p>
+    </div>
+    <a class="btn btn-outline-secondary" href="#customer-order-form">Hacer otro pedido <span aria-hidden="true">→</span></a>
+  </section>
+}
 @* Evita mostrar un formulario que no se podría completar si no hay mesa o productos vendibles. *@
 @if (!mesas.Any()) { <div class="alert alert-info">No hay mesas libres en este momento. Consulta con nuestro equipo.</div> }
 else if (!platos.Any()) { <div class="alert alert-info">No hay platillos disponibles para pedir en este momento.</div> }
 else {
 @* El servidor vuelve a comprobar mesa, disponibilidad y existencias al recibir este formulario. *@
-<form method="post" asp-action="CreatePublic" class="customer-order-form">
+<form method="post" asp-action="CreatePublic" id="customer-order-form" class="customer-order-form">
   @* Se envía la clave de mesa para no depender de que el número visible sea único o manipulable. *@
-  <div class="table-picker mb-4"><label class="form-label" for="idMesa">Tu mesa</label><select class="form-select" name="idMesa" id="idMesa" required><option value="" disabled selected>Selecciona dónde estás sentado</option>@foreach (var mesa in mesas) { <option value="@mesa.IdMesa">Mesa @mesa.NumeroMesa</option> }</select></div>
+  <div class="table-picker mb-4"><label class="form-label" for="idMesa">Tu mesa</label><select class="form-select" name="idMesa" id="idMesa" required><option value="" disabled selected="@(ViewBag.MesaSeleccionada == null ? "selected" : null)">Selecciona dónde estás sentado</option>@foreach (var mesa in mesas) { if (ViewBag.MesaSeleccionada == mesa.IdMesa) { <option value="@mesa.IdMesa" selected>Mesa @mesa.NumeroMesa · continuar pidiendo</option> } else { <option value="@mesa.IdMesa">Mesa @mesa.NumeroMesa</option> } }</select></div>
   <div class="order-menu-heading"><h3>Elige tus platillos</h3><span>@platos.Count especialidades disponibles</span></div>
   <div class="row g-4">
   @foreach (var p in platos) {

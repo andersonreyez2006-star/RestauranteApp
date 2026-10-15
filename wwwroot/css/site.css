@@ -55,25 +55,54 @@ body {
 
 .site-navbar .navbar-nav {
   align-items: center;
-  gap: .2rem;
+  gap: .35rem;
 }
 
 .site-navbar .nav-link {
-  padding: .55rem .8rem;
+  position: relative;
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  padding: .55rem .85rem;
+  border: 1px solid transparent;
   border-radius: 999px;
   color: rgba(255, 250, 242, .76);
   font-size: .94rem;
-  transition: background-color .18s ease, color .18s ease;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background-color .18s ease, border-color .18s ease, color .18s ease, box-shadow .18s ease, transform .18s ease;
 }
 
-.site-navbar .nav-link:hover,
-.site-navbar .nav-link:focus {
-  background: rgba(255, 255, 255, .11);
+.site-navbar .nav-link:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, .12);
+  background: rgba(255, 255, 255, .09);
   color: #fff;
 }
 
+.site-navbar .nav-link.active {
+  border-color: rgba(244, 215, 165, .46);
+  background: linear-gradient(135deg, rgba(244, 215, 165, .2), rgba(244, 215, 165, .1));
+  box-shadow: inset 0 -2px 0 #e6c58f, 0 4px 14px rgba(18, 14, 11, .15);
+  color: #fff7e8;
+  font-weight: 750;
+}
+
+.site-navbar .nav-link:focus-visible,
+.site-navbar .navbar-brand:focus-visible,
+.site-navbar .account-nav button:focus-visible {
+  outline: 3px solid #f1d7a7;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 5px rgba(241, 215, 167, .2);
+}
+
 .site-navbar .navbar-text {
+  max-width: 180px;
+  overflow: hidden;
   color: rgba(255, 250, 242, .82);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .role-badge {
@@ -90,6 +119,7 @@ body {
 
 .account-nav {
   flex-direction: row;
+  gap: .5rem !important;
 }
 
 .page-content {
@@ -411,6 +441,31 @@ body {
   color: var(--muted);
 }
 
+.order-confirmation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  padding: 1.2rem 1.35rem;
+  border: 1px solid #d9e2cf;
+  border-radius: 16px;
+  background: linear-gradient(120deg, #f2f6ed, #fbfcf8);
+}
+
+.order-confirmation .eyebrow {
+  margin-bottom: .3rem;
+}
+
+.order-confirmation h3 {
+  margin: 0 0 .35rem;
+  font-size: 1.2rem;
+}
+
+.order-confirmation p {
+  margin: 0;
+  color: var(--muted);
+}
+
 .order-steps {
   display: flex;
   flex-wrap: wrap;
@@ -711,7 +766,7 @@ body {
   font-size: .7rem;
 }
 
-@media (max-width: 991.98px) {
+@media (max-width: 1399.98px) {
   .site-navbar {
     padding: .75rem 0;
   }
@@ -725,11 +780,15 @@ body {
     width: 100%;
     overflow-x: auto;
     flex-wrap: nowrap;
-    padding-bottom: .15rem;
+    padding: .35rem .15rem .55rem;
+    scrollbar-color: rgba(244, 215, 165, .55) transparent;
+    scrollbar-width: thin;
+    scroll-snap-type: x proximity;
   }
 
   .site-navbar .navbar-nav.me-auto .nav-link {
     white-space: nowrap;
+    scroll-snap-align: start;
   }
 
   .account-nav {
@@ -751,6 +810,14 @@ body {
     font-size: 1.05rem;
   }
 
+  .site-navbar .navbar-text {
+    max-width: 110px;
+  }
+
+  .site-navbar .role-badge {
+    margin-right: 0;
+  }
+
   .page-content .table {
     font-size: .9rem;
   }
@@ -765,12 +832,14 @@ body {
   }
 
   .order-menu-heading,
-  .order-submit-bar {
+  .order-submit-bar,
+  .order-confirmation {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .order-submit-bar .btn {
+  .order-submit-bar .btn,
+  .order-confirmation .btn {
     width: 100%;
   }
 }

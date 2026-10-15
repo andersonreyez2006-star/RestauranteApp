@@ -9,7 +9,9 @@ using RestauranteApp.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllersWithViews();
-builder.Services.AddDbContext<AppDbContext>(o => o.UseSqlServer(builder.Configuration.GetConnectionString("Default")));
+builder.Services.AddDbContext<AppDbContext>(o => o.UseSqlServer(
+    builder.Configuration.GetConnectionString("Default"),
+    sql => sql.EnableRetryOnFailure(15, TimeSpan.FromSeconds(4), null)));
 builder.Services.AddScoped<AsistenteService>();
 builder.Services.AddRateLimiter(options =>
 {
@@ -35,37 +37,69 @@ builder.Services.AddRateLimiter(options =>
 builder.Services.AddScoped<IPasswordHasher<Usuario>, PasswordHasher<Usuario>>();
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(o => { o.LoginPath = "/Account/Login"; o.AccessDeniedPath = "/Account/Denegado"; });
-builder.Services.AddAuthorization(o => o.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
+builder.Services.AddAuthorization(options =>
+{
+    options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
+    options.AddPolicy("BillingAccess", policy => policy.RequireRole("Administrador", "Cajero"));
+});
 
 var app = builder.Build();
 
-// BD con reintentos (SQL Server en Docker tarda en arrancar) + usuarios iniciales con contraseña hasheada
+// La conexión reintenta errores transitorios; errores de configuración o esquema detienen el arranque.
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<Usuario>>();
-    for (var i = 0; i < 15; i++)
+    if (db.Database.GetMigrations().Any()) db.Database.Migrate(); else db.Database.EnsureCreated();
+    // Actualización aditiva para instalaciones creadas con el prototipo anterior (sin migraciones EF).
+    db.Database.ExecuteSqlRaw("""
+        IF COL_LENGTH('dbo.Platillos', 'Existencias') IS NULL
+            ALTER TABLE dbo.Platillos ADD Existencias int NOT NULL CONSTRAINT DF_Platillos_Existencias DEFAULT 0;
+        IF COL_LENGTH('dbo.Platillos', 'Imagen') IS NULL
+            ALTER TABLE dbo.Platillos ADD Imagen varbinary(max) NULL;
+        IF COL_LENGTH('dbo.Platillos', 'ImagenContentType') IS NULL
+            ALTER TABLE dbo.Platillos ADD ImagenContentType nvarchar(100) NULL;
+        IF COL_LENGTH('dbo.Ordenes', 'IdUsuario') IS NOT NULL
+           AND EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Ordenes') AND name = 'IdUsuario' AND is_nullable = 0)
+            ALTER TABLE dbo.Ordenes ALTER COLUMN IdUsuario int NULL;
+        IF COL_LENGTH('dbo.Ordenes', 'TokenPedidoPublico') IS NULL
+            ALTER TABLE dbo.Ordenes ADD TokenPedidoPublico nvarchar(64) NULL;
+        IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.Ordenes') AND name = 'UX_Ordenes_TokenPedidoPublico')
+            CREATE UNIQUE INDEX UX_Ordenes_TokenPedidoPublico ON dbo.Ordenes(TokenPedidoPublico) WHERE TokenPedidoPublico IS NOT NULL;
+        IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.Facturas') AND name = 'UX_Facturas_IdOrden')
+        BEGIN
+            IF EXISTS (SELECT IdOrden FROM dbo.Facturas GROUP BY IdOrden HAVING COUNT(*) > 1)
+                THROW 51000, 'Hay órdenes con facturas duplicadas. Corrija esos registros antes de iniciar la aplicación.', 1;
+            CREATE UNIQUE INDEX UX_Facturas_IdOrden ON dbo.Facturas(IdOrden);
+        END;
+        """);
+    if (!db.Usuarios.Any())
     {
-        try
+        if (app.Environment.IsDevelopment())
         {
-            if (db.Database.GetMigrations().Any()) db.Database.Migrate(); else db.Database.EnsureCreated();
-            // Actualización aditiva para instalaciones creadas con el prototipo anterior (sin migraciones EF).
-            db.Database.ExecuteSqlRaw("IF COL_LENGTH('dbo.Platillos', 'Existencias') IS NULL ALTER TABLE dbo.Platillos ADD Existencias int NOT NULL CONSTRAINT DF_Platillos_Existencias DEFAULT 0; IF COL_LENGTH('dbo.Platillos', 'Imagen') IS NULL ALTER TABLE dbo.Platillos ADD Imagen varbinary(max) NULL; IF COL_LENGTH('dbo.Platillos', 'ImagenContentType') IS NULL ALTER TABLE dbo.Platillos ADD ImagenContentType nvarchar(100) NULL; IF COL_LENGTH('dbo.Ordenes', 'IdUsuario') IS NOT NULL AND EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Ordenes') AND name = 'IdUsuario' AND is_nullable = 0) ALTER TABLE dbo.Ordenes ALTER COLUMN IdUsuario int NULL;");
-            if (!db.Usuarios.Any())
+            foreach (var (nombre, rol, clave) in new[] {
+                ("Administrador", "Administrador", "Admin123!"), ("Mesero Demo", "Mesero", "Mesero123!"),
+                ("Cocina Demo", "Cocina", "Cocina123!"), ("Cajero Demo", "Cajero", "Cajero123!") })
             {
-                foreach (var (nombre, rol, clave) in new[] {
-                    ("Administrador", "Administrador", "Admin123!"), ("Mesero Demo", "Mesero", "Mesero123!"),
-                    ("Cocina Demo", "Cocina", "Cocina123!"), ("Cajero Demo", "Cajero", "Cajero123!") })
-                {
-                    var u = new Usuario { Nombre = nombre, Rol = rol, Correo = rol.ToLower() + "@restaurante.com" };
-                    u.Contrasena = hasher.HashPassword(u, clave);
-                    db.Usuarios.Add(u);
-                }
-                db.SaveChanges();
+                var demo = new Usuario { Nombre = nombre, Rol = rol, Correo = rol.ToLower() + "@restaurante.com" };
+                demo.Contrasena = hasher.HashPassword(demo, clave);
+                db.Usuarios.Add(demo);
             }
-            break;
         }
-        catch when (i < 14) { Thread.Sleep(4000); }
+        else
+        {
+            var correo = builder.Configuration["InitialAdmin:Email"];
+            var contrasena = builder.Configuration["InitialAdmin:Password"];
+            if (string.IsNullOrWhiteSpace(correo) || string.IsNullOrWhiteSpace(contrasena))
+                throw new InvalidOperationException(
+                    "La base de datos no tiene usuarios. Configure InitialAdmin:Email e InitialAdmin:Password para crear el administrador inicial.");
+
+            var admin = new Usuario { Nombre = "Administrador", Rol = "Administrador", Correo = correo.Trim() };
+            admin.Contrasena = hasher.HashPassword(admin, contrasena);
+            db.Usuarios.Add(admin);
+        }
+
+        db.SaveChanges();
     }
 }
 

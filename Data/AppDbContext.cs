@@ -17,6 +17,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     {
         b.Entity<Usuario>().HasIndex(u => u.Correo).IsUnique();
         b.Entity<Mesa>().HasIndex(m => m.NumeroMesa).IsUnique();
+        b.Entity<Factura>().HasIndex(f => f.IdOrden).IsUnique().HasDatabaseName("UX_Facturas_IdOrden");
+        b.Entity<Orden>().HasIndex(o => o.TokenPedidoPublico).IsUnique()
+            .HasDatabaseName("UX_Ordenes_TokenPedidoPublico").HasFilter("[TokenPedidoPublico] IS NOT NULL");
         // Evita rutas de borrado en cascada múltiples en SQL Server
         b.Entity<Orden>().HasOne(o => o.Mesa).WithMany().HasForeignKey(o => o.IdMesa).OnDelete(DeleteBehavior.Restrict);
         b.Entity<Orden>().HasOne(o => o.Usuario).WithMany().HasForeignKey(o => o.IdUsuario).OnDelete(DeleteBehavior.Restrict);

@@ -1,0 +1,9 @@
+@{
+  ViewData["Title"] = "Error";
+}
+<div class="empty-menu">
+  <h2>No pudimos completar tu solicitud</h2>
+  <p>Ocurrió un error inesperado. Intenta nuevamente; si persiste, comparte este identificador con el administrador.</p>
+  <p class="text-muted">Referencia: <code>@ViewData["RequestId"]</code></p>
+  <a class="btn btn-primary" asp-controller="Platillos" asp-action="Index">Volver al menú</a>
+</div>
