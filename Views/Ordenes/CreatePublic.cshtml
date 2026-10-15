@@ -1,21 +1,37 @@
 @using RestauranteApp.Models
 @{ ViewData["Title"] = "Pedido en mesa"; var mesas = ViewBag.Mesas as List<Mesa> ?? new(); var platos = ViewBag.Platillos as List<Platillo> ?? new(); }
-<h2>Menú y pedido en mesa</h2>
-<p class="text-muted">Elige tu mesa y las cantidades. El pedido se enviará directamente a cocina.</p>
-@if (!mesas.Any()) { <div class="alert alert-info">No hay mesas libres en este momento.</div> }
-else if (!platos.Any()) { <div class="alert alert-info">No hay platillos disponibles para pedir.</div> }
+<header class="order-hero">
+  <span class="eyebrow">Una buena elección empieza aquí</span>
+  <h2>Arma tu pedido</h2>
+  <p>Elige una mesa, descubre algo rico y envía tu pedido directamente a cocina.</p>
+  <div class="order-steps"><span><b>1</b> Elige tu mesa</span><span><b>2</b> Selecciona tus platillos</span><span><b>3</b> Envía tu pedido</span></div>
+</header>
+@if (!mesas.Any()) { <div class="alert alert-info">No hay mesas libres en este momento. Consulta con nuestro equipo.</div> }
+else if (!platos.Any()) { <div class="alert alert-info">No hay platillos disponibles para pedir en este momento.</div> }
 else {
-<form method="post" asp-action="CreatePublic">
-  <div class="mb-3" style="max-width:300px"><label class="form-label" for="idMesa">Mesa</label><select class="form-select" name="idMesa" id="idMesa" required>@foreach (var mesa in mesas) { <option value="@mesa.IdMesa">Mesa @mesa.NumeroMesa</option> }</select></div>
-  <div class="row g-3">
+<form method="post" asp-action="CreatePublic" class="customer-order-form">
+  <div class="table-picker mb-4"><label class="form-label" for="idMesa">Tu mesa</label><select class="form-select" name="idMesa" id="idMesa" required><option value="" disabled selected>Selecciona dónde estás sentado</option>@foreach (var mesa in mesas) { <option value="@mesa.IdMesa">Mesa @mesa.NumeroMesa</option> }</select></div>
+  <div class="order-menu-heading"><h3>Elige tus platillos</h3><span>@platos.Count especialidades disponibles</span></div>
+  <div class="row g-4">
   @foreach (var p in platos) {
-    <div class="col-md-6 col-lg-4"><div class="card h-100"><div class="card-body">
-      <div class="d-flex justify-content-between"><h5>@p.Nombre</h5><span>$@p.Precio.ToString("N2")</span></div>
-      <div class="small text-muted mb-3">@p.Categoria?.Nombre · @p.Descripcion · @p.Existencias disponibles</div>
-      <label class="form-label" for="q_@p.IdPlatillo">Cantidad</label><input id="q_@p.IdPlatillo" class="form-control" type="number" name="cantidades[@p.IdPlatillo]" min="0" max="@Math.Min(20, p.Existencias)" value="0" />
-    </div></div></div>
+    <div class="col-sm-6 col-xl-4">
+      <article class="customer-menu-card order-dish-card h-100">
+        <div class="dish-art" aria-hidden="true"><span>✦</span></div>
+        <div class="dish-content">
+          <div class="d-flex justify-content-between align-items-start gap-3">
+            <span class="dish-category">@(p.Categoria?.Nombre ?? "Especialidad")</span>
+            <span class="dish-price">$@p.Precio.ToString("N2")</span>
+          </div>
+          <h4 class="dish-name">@p.Nombre</h4>
+          @if (!string.IsNullOrWhiteSpace(p.Descripcion)) { <p class="dish-description">@p.Descripcion</p> }
+          <p class="dish-stock">@p.Existencias disponibles hoy</p>
+          <label class="form-label" for="q_@p.IdPlatillo">Cantidad</label>
+          <input id="q_@p.IdPlatillo" class="form-control" type="number" name="cantidades[@p.IdPlatillo]" min="0" max="@Math.Min(20, p.Existencias)" value="0" />
+        </div>
+      </article>
+    </div>
   }
   </div>
-  <button class="btn btn-primary mt-4">Enviar pedido a cocina</button>
+  <div class="order-submit-bar"><span>Revisa las cantidades antes de enviar</span><button class="btn btn-primary btn-lg">Enviar pedido a cocina <span aria-hidden="true">→</span></button></div>
 </form>
 }

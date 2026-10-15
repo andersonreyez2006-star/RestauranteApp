@@ -1,7 +1,36 @@
 @model IEnumerable<Platillo>
-@{ ViewData["Title"] = "Menú"; }
-<div class="d-flex justify-content-between mb-3"><h2>Menú de platillos</h2>
+@{ ViewData["Title"] = "Menú"; var esCliente = !User.IsInRole("Administrador"); }
+<div class="menu-heading d-flex justify-content-between align-items-end mb-4">
+  <div>
+    <span class="eyebrow">Sabor hecho en casa</span>
+    <h2 class="mb-2">@(esCliente ? "Nuestro menú" : "Menú de platillos")</h2>
+    <p class="text-muted mb-0">@(esCliente ? "Descubre tus favoritos, preparados al momento con ingredientes frescos." : "Administra los platillos disponibles en el restaurante.")</p>
+  </div>
   @if (User.IsInRole("Administrador")) { <a class="btn btn-primary" asp-action="Create">Nuevo platillo</a> }</div>
+@if (esCliente) {
+  @if (Model.Any()) {
+    <div class="row g-4 customer-menu-grid">
+      @foreach (var p in Model) {
+        <div class="col-sm-6 col-xl-4">
+          <article class="customer-menu-card h-100">
+            <div class="dish-art" aria-hidden="true"><span>✦</span></div>
+            <div class="dish-content">
+              <div class="d-flex justify-content-between align-items-start gap-3">
+                <span class="dish-category">@(p.Categoria?.Nombre ?? "Especialidad")</span>
+                <span class="dish-price">$@p.Precio.ToString("N2")</span>
+              </div>
+              <h3 class="dish-name">@p.Nombre</h3>
+              @if (!string.IsNullOrWhiteSpace(p.Descripcion)) { <p class="dish-description">@p.Descripcion</p> }
+              <a class="dish-order-link" asp-controller="Ordenes" asp-action="CreatePublic">Pedir en mesa <span aria-hidden="true">→</span></a>
+            </div>
+          </article>
+        </div>
+      }
+    </div>
+  } else {
+    <div class="empty-menu"><span aria-hidden="true">✦</span><h3>Estamos preparando el menú</h3><p>Vuelve pronto para descubrir nuestras especialidades.</p></div>
+  }
+} else {
 <table class="table table-striped align-middle">
   <thead><tr><th>Nombre</th><th>Categoría</th><th>Precio</th><th>Estado</th><th>Existencias</th><th></th></tr></thead>
   <tbody>
@@ -18,3 +47,4 @@
   }
   </tbody>
 </table>
+}
