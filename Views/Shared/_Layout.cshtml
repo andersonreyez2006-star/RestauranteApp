@@ -4,10 +4,11 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>@ViewData["Title"] - Restaurante</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
+  <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
 <body>
-<nav class="navbar navbar-expand navbar-dark bg-dark mb-4"><div class="container">
-  <a class="navbar-brand" asp-controller="Platillos" asp-action="Index">Gestión Gastronómica</a>
+<nav class="navbar navbar-expand navbar-dark site-navbar"><div class="container">
+  <a class="navbar-brand" asp-controller="Platillos" asp-action="Index"><span class="brand-mark">R</span> Restaurante</a>
   <div class="navbar-nav me-auto">
     <a class="nav-link" asp-controller="Platillos" asp-action="Index">Menú</a>
     <a class="nav-link" asp-controller="Ordenes" asp-action="CreatePublic">Pedir en mesa</a>
@@ -18,63 +19,15 @@
     @if (User.IsInRole("Administrador")) { <a class="nav-link" asp-controller="Categorias" asp-action="Index">Categorías</a> }
     @if (User.IsInRole("Administrador") || User.IsInRole("Cajero")) { <a class="nav-link" asp-controller="Reportes" asp-action="Index">Reportes</a> }
   </div>
-  <div class="navbar-nav">
+  <div class="navbar-nav account-nav">
     @if (User.Identity?.IsAuthenticated == true) {
       <span class="navbar-text me-3">@User.Identity.Name</span>
       <form method="post" asp-controller="Account" asp-action="Logout"><button class="btn btn-sm btn-outline-light">Salir</button></form>
     } else { <a class="nav-link" asp-controller="Account" asp-action="Login">Ingresar</a> }
   </div></div></nav>
-<div class="container">
+<main class="container page-content">
   @if (TempData["Ok"] != null) { <div class="alert alert-success">@TempData["Ok"]</div> }
   @if (TempData["Error"] != null) { <div class="alert alert-danger">@TempData["Error"]</div> }
   @RenderBody()
-</div>
-<style>
-  #ayuda-burbuja { position: fixed; right: 22px; bottom: 22px; z-index: 1050; }
-  #ayuda-panel { display: none; position: fixed; right: 22px; bottom: 82px; width: min(360px, calc(100vw - 32px)); height: 430px; z-index: 1050; box-shadow: 0 8px 28px #0003; }
-  #ayuda-mensajes { height: 310px; overflow-y: auto; }
-</style>
-<div id="ayuda-panel" class="card">
-  <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-    <span>Ayuda del menú</span><button type="button" class="btn-close btn-close-white" aria-label="Cerrar" onclick="document.getElementById('ayuda-panel').style.display='none'"></button>
-  </div>
-  <div id="ayuda-mensajes" class="card-body small"><div class="text-muted">Pregúntame por platillos disponibles y te ayudo a elegir.</div></div>
-  <form id="ayuda-form" class="card-footer d-flex gap-2">
-    <input id="ayuda-texto" class="form-control" maxlength="500" placeholder="¿Qué me recomiendas?" required />
-    <button id="ayuda-enviar" class="btn btn-primary" type="submit">Enviar</button>
-  </form>
-</div>
-<button id="ayuda-burbuja" class="btn btn-primary rounded-pill shadow" type="button" aria-label="Abrir ayuda del menú">💬 Ayuda</button>
-<script>
-(() => {
-  const panel = document.getElementById('ayuda-panel');
-  const mensajes = document.getElementById('ayuda-mensajes');
-  const formulario = document.getElementById('ayuda-form');
-  const entrada = document.getElementById('ayuda-texto');
-  document.getElementById('ayuda-burbuja').addEventListener('click', () => {
-    panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
-    if (panel.style.display === 'block') entrada.focus();
-  });
-  formulario.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const texto = entrada.value.trim();
-    if (!texto) return;
-    const usuario = document.createElement('div');
-    usuario.className = 'text-end mb-2'; usuario.textContent = texto;
-    mensajes.appendChild(usuario); entrada.value = '';
-    const espera = document.createElement('div'); espera.className = 'text-muted mb-2'; espera.textContent = 'Buscando en el menú…'; mensajes.appendChild(espera);
-    mensajes.scrollTop = mensajes.scrollHeight;
-    const boton = document.getElementById('ayuda-enviar'); boton.disabled = true;
-    try {
-      const respuesta = await fetch('/Asistente/Preguntar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ texto }) });
-      const datos = await respuesta.json();
-      espera.className = 'mb-2'; espera.textContent = datos.respuesta || 'No pude generar una respuesta.';
-    } catch {
-      espera.className = 'text-danger mb-2'; espera.textContent = 'No se pudo conectar con el asistente. Intenta de nuevo.';
-    } finally { boton.disabled = false; mensajes.scrollTop = mensajes.scrollHeight; }
-  });
-})();
-</script>
 </body>
 </html>
-
