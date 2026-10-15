@@ -9,6 +9,7 @@ using RestauranteApp.Data;
 using RestauranteApp.Models;
 namespace RestauranteApp.Controllers;
 
+// Gestiona el inicio y cierre de sesión mediante cookies y contraseñas verificadas con hash.
 [AllowAnonymous]
 public class AccountController(AppDbContext db, IPasswordHasher<Usuario> hasher) : Controller
 {
@@ -17,9 +18,11 @@ public class AccountController(AppDbContext db, IPasswordHasher<Usuario> hasher)
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> Login(string correo, string contrasena)
     {
+        // Nunca se compara la contraseña directamente: se valida contra el hash persistido.
         var u = await db.Usuarios.FirstOrDefaultAsync(x => x.Correo == correo);
         if (u == null || hasher.VerifyHashedPassword(u, u.Contrasena, contrasena ?? "") == PasswordVerificationResult.Failed)
         { ViewBag.Error = "Correo o contraseña incorrectos."; return View(); }
+        // Los claims permiten identificar al usuario y aplicar autorización por rol en las demás rutas.
         var claims = new List<Claim> { new(ClaimTypes.NameIdentifier, u.IdUsuario.ToString()), new(ClaimTypes.Name, u.Nombre), new(ClaimTypes.Role, u.Rol) };
         var id = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
         await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(id));

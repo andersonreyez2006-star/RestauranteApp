@@ -6,12 +6,14 @@ using RestauranteApp.Models;
 
 namespace RestauranteApp.Controllers;
 
+// Calcula métricas de ventas del día elegido y alertas de inventario bajo.
 [Authorize(Roles = "Administrador,Cajero")]
 public class ReportesController(AppDbContext db) : Controller
 {
     public async Task<IActionResult> Index(DateTime? fecha)
     {
         var dia = (fecha ?? DateTime.Today).Date;
+        // Intervalo semiabierto: incluye cualquier hora del día y excluye exactamente el siguiente día.
         var hasta = dia.AddDays(1);
         var facturas = db.Facturas.Where(f => f.Fecha >= dia && f.Fecha < hasta);
         var detalles = await db.Detalles.Include(d => d.Platillo).Include(d => d.Orden)

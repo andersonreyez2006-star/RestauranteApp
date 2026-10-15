@@ -6,6 +6,7 @@ using RestauranteApp.Data;
 using RestauranteApp.Models;
 namespace RestauranteApp.Controllers;
 
+// Publica el menú y permite al administrador mantener platillos e imágenes.
 [Authorize(Roles = "Administrador")]
 public class PlatillosController(AppDbContext db) : Controller
 {
@@ -17,6 +18,7 @@ public class PlatillosController(AppDbContext db) : Controller
     [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     public async Task<IActionResult> Imagen(int id)
     {
+        // Las imágenes se leen desde SQL para que no dependan del almacenamiento efímero del contenedor.
         var image = await db.Platillos.AsNoTracking()
             .Where(p => p.IdPlatillo == id)
             .Select(p => new { p.Imagen, p.ImagenContentType })
@@ -31,6 +33,7 @@ public class PlatillosController(AppDbContext db) : Controller
     public async Task<IActionResult> Index()
     {
         IQueryable<Platillo> menu = db.Platillos.Include(p => p.Categoria);
+        // El público solo ve artículos vendibles; administración también necesita ver agotados.
         if (!User.IsInRole("Administrador")) menu = menu.Where(p => p.Estado == "Disponible" && p.Existencias > 0);
         return View(await menu.OrderBy(p => p.Nombre).ToListAsync());
     }
@@ -70,6 +73,7 @@ public class PlatillosController(AppDbContext db) : Controller
         var actual = await db.Platillos.FindAsync(id);
         if (actual is null) return NotFound();
 
+        // Mantiene la imagen existente si no se carga otra y actualiza solo campos editables del formulario.
         p.Imagen = actual.Imagen;
         p.ImagenContentType = actual.ImagenContentType;
         var uploadedImage = await LeerImagenAsync(imagen);
@@ -113,6 +117,7 @@ public class PlatillosController(AppDbContext db) : Controller
     private async Task<(byte[] Contenido, string Tipo)?> LeerImagenAsync(IFormFile? imagen)
     {
         if (imagen is null || imagen.Length == 0) return null;
+        // El límite del archivo se comprueba además del límite de tamaño total de la solicitud.
         if (imagen.Length > MaxImageSize)
         {
             ModelState.AddModelError(nameof(imagen), "La imagen no puede superar los 5 MB.");
@@ -134,6 +139,7 @@ public class PlatillosController(AppDbContext db) : Controller
 
     private static string? DetectarTipo(byte[] bytes)
     {
+        // Se verifica la firma binaria y no el nombre o Content-Type enviados por el navegador.
         if (bytes.Length >= 8 &&
             bytes.AsSpan(0, 8).SequenceEqual(new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }))
             return "image/png";

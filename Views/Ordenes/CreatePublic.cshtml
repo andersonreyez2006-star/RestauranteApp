@@ -1,3 +1,4 @@
+@* Pedido público sin inicio de sesión; solo muestra opciones disponibles y limita cantidades al stock actual. *@
 @using RestauranteApp.Models
 @{ ViewData["Title"] = "Pedido en mesa"; var mesas = ViewBag.Mesas as List<Mesa> ?? new(); var platos = ViewBag.Platillos as List<Platillo> ?? new(); }
 <header class="order-hero">
@@ -9,6 +10,7 @@
 @if (!mesas.Any()) { <div class="alert alert-info">No hay mesas libres en este momento. Consulta con nuestro equipo.</div> }
 else if (!platos.Any()) { <div class="alert alert-info">No hay platillos disponibles para pedir en este momento.</div> }
 else {
+@* El servidor vuelve a comprobar mesa, disponibilidad y existencias al recibir este formulario. *@
 <form method="post" asp-action="CreatePublic" class="customer-order-form">
   <div class="table-picker mb-4"><label class="form-label" for="idMesa">Tu mesa</label><select class="form-select" name="idMesa" id="idMesa" required><option value="" disabled selected>Selecciona dónde estás sentado</option>@foreach (var mesa in mesas) { <option value="@mesa.IdMesa">Mesa @mesa.NumeroMesa</option> }</select></div>
   <div class="order-menu-heading"><h3>Elige tus platillos</h3><span>@platos.Count especialidades disponibles</span></div>

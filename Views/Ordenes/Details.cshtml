@@ -1,3 +1,4 @@
+@* Detalle de orden con controles visibles según el estado y el rol del usuario autenticado. *@
 @model Orden
 @{ ViewData["Title"] = "Orden " + Model.IdOrden; var cerrada = Model.Estado == "Facturada"; var total = Model.Detalles.Sum(d => d.Subtotal);
    var puedeEditar = !cerrada && (User.IsInRole("Administrador") || User.IsInRole("Mesero")); }
@@ -14,6 +15,7 @@
     <div class="col-2"><button class="btn btn-primary">Agregar</button></div>
   </form> }
 @if (!cerrada && Model.Detalles.Any() && (User.IsInRole("Administrador") || User.IsInRole("Cajero"))) {
+  @* Solo se ofrece facturación para órdenes abiertas que ya contienen al menos un platillo. *@
   <form method="post" asp-controller="Facturas" asp-action="Crear" class="row g-2" style="max-width:420px">
     <input type="hidden" name="idOrden" value="@Model.IdOrden" />
     <div class="col-7"><select name="metodoPago" class="form-select"><option>Efectivo</option><option>Tarjeta</option><option>Transferencia</option></select></div>
