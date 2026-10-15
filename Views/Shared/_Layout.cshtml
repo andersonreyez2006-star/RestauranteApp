@@ -1,3 +1,4 @@
+@* Estructura compartida: navegación por rol, mensajes de operación y asistencia pública. *@
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -44,6 +45,7 @@
   @RenderBody()
 </main>
 @if (!autenticado) {
+  @* El chat solo aparece a visitantes; las respuestas se solicitan al endpoint del asistente. *@
   <section id="chatbot-panel" class="chatbot-panel" aria-label="Asistente del restaurante" aria-hidden="true">
     <header class="chatbot-header">
       <div><span class="chatbot-status"></span><strong>Ayuda del restaurante</strong><small>Menú y pedidos</small></div>
@@ -63,6 +65,7 @@
   </button>
   <script>
   (() => {
+    // Mantiene el estado accesible del panel y anuncia las respuestas dentro del historial.
     const panel = document.getElementById('chatbot-panel');
     const toggle = document.getElementById('chatbot-toggle');
     const close = document.getElementById('chatbot-close');
@@ -79,6 +82,7 @@
     };
 
     const addMessage = (text, kind) => {
+      // textContent evita interpretar como HTML el texto enviado o recibido en el chat.
       const message = document.createElement('div');
       message.className = `chat-message chat-message-${kind}`;
       message.textContent = text;
@@ -102,6 +106,7 @@
       const pending = addMessage('Estoy buscando una respuesta…', 'assistant');
 
       try {
+        // La API recibe únicamente la pregunta; el servidor valida y aplica el límite de uso.
         const response = await fetch('/Asistente/Preguntar', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

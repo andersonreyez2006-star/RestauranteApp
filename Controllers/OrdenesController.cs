@@ -7,6 +7,7 @@ using RestauranteApp.Data;
 using RestauranteApp.Models;
 namespace RestauranteApp.Controllers;
 
+// Coordina la creación de pedidos, sus líneas, las existencias y la disponibilidad de mesas.
 [Authorize(Roles = "Administrador,Mesero,Cajero")]
 public class OrdenesController(AppDbContext db) : Controller
 {
@@ -23,6 +24,7 @@ public class OrdenesController(AppDbContext db) : Controller
     [AllowAnonymous]
     public async Task<IActionResult> CreatePublic()
     {
+        // El pedido público solo ofrece mesas libres y platillos con estado y existencias disponibles.
         ViewBag.Mesas = await db.Mesas.Where(m => m.Estado == "Libre").OrderBy(m => m.NumeroMesa).ToListAsync();
         ViewBag.Platillos = await db.Platillos.Include(p => p.Categoria).Where(p => p.Estado == "Disponible" && p.Existencias > 0).OrderBy(p => p.Categoria!.Nombre).ThenBy(p => p.Nombre).ToListAsync();
         return View();
@@ -37,12 +39,14 @@ public class OrdenesController(AppDbContext db) : Controller
         if (pedido.Count == 0) { TempData["Error"] = "Selecciona al menos un platillo."; return RedirectToAction(nameof(CreatePublic)); }
         var ids = pedido.Select(x => x.Key).ToList();
         var platos = await db.Platillos.Where(p => ids.Contains(p.IdPlatillo) && p.Estado == "Disponible").ToListAsync();
+        // Se revalidan precio, disponibilidad y cantidad en el servidor; los valores del formulario no son confiables.
         if (platos.Count != pedido.Count || pedido.Any(x => x.Value > 20 || platos.Single(p => p.IdPlatillo == x.Key).Existencias < x.Value))
         { TempData["Error"] = "Revisa las cantidades disponibles del menú."; return RedirectToAction(nameof(CreatePublic)); }
         var orden = new Orden { IdMesa = idMesa, Estado = "Pendiente" };
         foreach (var item in pedido)
         {
             var plato = platos.Single(p => p.IdPlatillo == item.Key);
+            // El detalle guarda el precio vigente para que futuras ediciones del menú no alteren la orden.
             plato.Existencias -= item.Value;
             if (plato.Existencias == 0) plato.Estado = "Agotado";
             orden.Detalles.Add(new DetalleOrden { IdPlatillo = plato.IdPlatillo, Cantidad = item.Value, PrecioUnitario = plato.Precio, Subtotal = plato.Precio * item.Value });
@@ -80,6 +84,7 @@ public class OrdenesController(AppDbContext db) : Controller
         if (orden.Estado == "Facturada" || cantidad < 1 || plato.Estado != "Disponible")
         { TempData["Error"] = "No se pudo agregar el platillo."; return RedirectToAction(nameof(Details), new { id }); }
         if (cantidad > plato.Existencias) { TempData["Error"] = "No hay suficientes existencias."; return RedirectToAction(nameof(Details), new { id }); }
+        // La adición descuenta inventario y, si la cocina ya la había terminado, devuelve la orden a pendientes.
         plato.Existencias -= cantidad;
         if (plato.Existencias == 0) plato.Estado = "Agotado";
         db.Detalles.Add(new DetalleOrden { IdOrden = id, IdPlatillo = idPlatillo, Cantidad = cantidad, PrecioUnitario = plato.Precio, Subtotal = plato.Precio * cantidad });
@@ -93,6 +98,7 @@ public class OrdenesController(AppDbContext db) : Controller
         var d = await db.Detalles.Include(x => x.Orden).FirstOrDefaultAsync(x => x.IdDetalle == idDetalle);
         if (d == null) return NotFound();
         var id = d.IdOrden;
+        // Al retirar una línea antes de facturar se reintegra su cantidad al inventario.
         if (d.Orden!.Estado != "Facturada") { var p = await db.Platillos.FindAsync(d.IdPlatillo); if (p != null) { p.Existencias += d.Cantidad; p.Estado = "Disponible"; } db.Detalles.Remove(d); await db.SaveChangesAsync(); }
         return RedirectToAction(nameof(Details), new { id });
     }

@@ -5,6 +5,7 @@ using RestauranteApp.Data;
 using RestauranteApp.Models;
 namespace RestauranteApp.Controllers;
 
+// Consulta y genera facturas para las órdenes procesadas por administrador o cajero.
 [Authorize(Roles = "Administrador,Cajero")]
 public class FacturasController(AppDbContext db) : Controller
 {
@@ -26,9 +27,11 @@ public class FacturasController(AppDbContext db) : Controller
         if (orden == null) return NotFound();
         if (orden.Estado == "Facturada" || !orden.Detalles.Any())
         { TempData["Error"] = "La orden no se puede facturar."; return RedirectToAction("Details", "Ordenes", new { id = idOrden }); }
+        // Se calcula el IVA sobre la suma de los subtotales y se redondea a centavos.
         var sub = orden.Detalles.Sum(d => d.Subtotal); var iva = Math.Round(sub * TasaIva, 2);
         var f = new Factura { IdOrden = idOrden, Subtotal = sub, IVA = iva, Total = sub + iva };
         f.Pagos.Add(new Pago { MetodoPago = string.IsNullOrWhiteSpace(metodoPago) ? "Efectivo" : metodoPago, Monto = f.Total });
+        // El cobro cierra la orden y libera la mesa en la misma operación de base de datos.
         orden.Estado = "Facturada"; if (orden.Mesa != null) orden.Mesa.Estado = "Libre";
         db.Facturas.Add(f); await db.SaveChangesAsync();
         return RedirectToAction(nameof(Details), new { id = f.IdFactura });

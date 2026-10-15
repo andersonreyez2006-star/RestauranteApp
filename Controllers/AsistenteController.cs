@@ -6,8 +6,10 @@ using RestauranteApp.Services;
 
 namespace RestauranteApp.Controllers;
 
+// Contrato pequeño para recibir la pregunta del chat en formato JSON.
 public record PreguntaDto([Required, StringLength(500)] string Texto);
 
+// Expone el asistente a visitantes y limita la frecuencia de consultas según la política "chat".
 [AllowAnonymous]
 [EnableRateLimiting("chat")]
 [Route("[controller]/[action]")]
@@ -16,6 +18,7 @@ public class AsistenteController(AsistenteService service) : Controller
     [HttpPost]
     public async Task<IActionResult> Preguntar([FromBody] PreguntaDto? pregunta, CancellationToken cancellationToken)
     {
+        // Se valida también de forma explícita para responder errores claros al cliente.
         if (pregunta is null || string.IsNullOrWhiteSpace(pregunta.Texto))
             return BadRequest(new { respuesta = "Escribe tu consulta para poder ayudarte." });
 
