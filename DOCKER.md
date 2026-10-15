@@ -39,4 +39,4 @@ La imagen sirve HTTP en el puerto `8080`. La aplicación recibe la cadena de con
 
 El `compose.yaml` anterior es para pruebas locales: usa un contenedor SQL Server Developer. Para producción en Azure, publica la imagen de `web` en Azure Container Registry y configura Azure App Service for Containers o Azure Container Apps para usarla. Conecta la aplicación a Azure SQL Database mediante la configuración segura del servicio, preferentemente con identidad administrada. No despliegues el contenedor SQL Server Developer como base de datos de producción ni publiques el puerto `1433` a Internet.
 
-La configuración de Azure OpenAI es opcional. Si se habilita, guarda endpoint, clave y nombre del despliegue como configuración/secretos del servicio de Azure, no en archivos versionados.
+El chat público responde preguntas frecuentes sobre el menú, precios y pedidos usando los datos actuales de platillos disponibles. No llama a Foundry ni a otro proveedor externo y no requiere claves o variables de IA en App Service. Sus respuestas están basadas en reglas explícitas; para horarios, pagos, alérgenos u otros datos no registrados, recomienda consultar al personal.

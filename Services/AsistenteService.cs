@@ -1,15 +1,11 @@
+using System.Globalization;
 using System.Text;
-using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using RestauranteApp.Data;
 
 namespace RestauranteApp.Services;
 
-public class AsistenteService(
-    AppDbContext db,
-    HttpClient http,
-    IConfiguration configuration,
-    ILogger<AsistenteService> logger)
+public class AsistenteService(AppDbContext db)
 {
     private sealed record PlatilloDisponible(string Nombre, string Categoria, string? Descripcion, decimal Precio, int Existencias);
 
@@ -29,137 +25,7 @@ public class AsistenteService(
                 p.Existencias))
             .ToListAsync(cancellationToken);
 
-        // Endpoint debe ser la base OpenAI-compatible de Foundry, por ejemplo:
-        // https://dspbot.services.ai.azure.com/openai/v1
-        var endpoint = configuration["AI:Endpoint"];
-        var key = configuration["AI:ApiKey"];
-        var model = configuration["AI:Deployment"];
-        if (string.IsNullOrWhiteSpace(endpoint) ||
-            string.IsNullOrWhiteSpace(key) ||
-            string.IsNullOrWhiteSpace(model))
-        {
-            logger.LogWarning("Falta configuración de Foundry; se usará la respuesta frecuente.");
-            return RespuestaFrecuente(pregunta, platillos);
-        }
-
-        var menu = string.Join("\n", platillos.Select(p =>
-            $"- {p.Nombre}, categoría {p.Categoria}, ${p.Precio:N2}, {p.Existencias} disponibles. {p.Descripcion}"));
-        var instructions = """
-                            Eres el asistente amable de un restaurante salvadoreño. Responde siempre en español, de forma breve y útil.
-                            Puedes resolver dudas sobre cómo consultar el menú, seleccionar una mesa y enviar un pedido: el cliente elige una mesa, indica cantidades y pulsa "Enviar pedido a cocina".
-                            Para precios, ingredientes, categorías o disponibilidad, usa exclusivamente el menú proporcionado. No inventes horarios, dirección, métodos de pago, tiempos de espera, políticas, ingredientes ni información de pedidos.
-                            Si no hay datos suficientes, dilo claramente y recomienda consultar al personal. Nunca solicites contraseñas ni datos de pago.
-                            Menú disponible:
-                            """ + menu;
-        var payload = new
-        {
-            model,
-            input = new object[]
-            {
-                new
-                {
-                    role = "system",
-                    content = instructions
-                },
-                new { role = "user", content = pregunta }
-            },
-            max_output_tokens = 250
-        };
-
-        var url = $"{endpoint.TrimEnd('/')}/responses";
-        using var request = new HttpRequestMessage(HttpMethod.Post, url)
-        {
-            Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")
-        };
-        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", key);
-
-        try
-        {
-            using var response = await http.SendAsync(request, cancellationToken);
-            if (!response.IsSuccessStatusCode)
-            {
-                var providerError = await LeerCodigoErrorAsync(response, cancellationToken);
-                logger.LogWarning(
-                    "Foundry respondió con HTTP {StatusCode} y código {ProviderError}; se usará la respuesta frecuente.",
-                    (int)response.StatusCode,
-                    providerError ?? "no disponible");
-                return RespuestaFrecuente(pregunta, platillos);
-            }
-
-            using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
-            var answer = ObtenerTextoRespuesta(document.RootElement);
-
-            return string.IsNullOrWhiteSpace(answer)
-                ? RespuestaFrecuente(pregunta, platillos)
-                : answer.Trim();
-        }
-        catch (HttpRequestException exception)
-        {
-            logger.LogWarning(exception, "No se pudo contactar el servicio de IA; se usará la respuesta frecuente.");
-            return RespuestaFrecuente(pregunta, platillos);
-        }
-        catch (TaskCanceledException exception) when (!cancellationToken.IsCancellationRequested)
-        {
-            logger.LogWarning(exception, "La consulta al servicio de IA agotó el tiempo; se usará la respuesta frecuente.");
-            return RespuestaFrecuente(pregunta, platillos);
-        }
-        catch (JsonException exception)
-        {
-            logger.LogWarning(exception, "El servicio de IA devolvió una respuesta no válida; se usará la respuesta frecuente.");
-            return RespuestaFrecuente(pregunta, platillos);
-        }
-    }
-
-    private static async Task<string?> LeerCodigoErrorAsync(HttpResponseMessage response, CancellationToken cancellationToken)
-    {
-        try
-        {
-            using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
-            if (document.RootElement.TryGetProperty("error", out var error) &&
-                error.ValueKind == JsonValueKind.Object)
-            {
-                foreach (var property in new[] { "code", "type" })
-                {
-                    if (error.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String)
-                        return value.GetString();
-                }
-            }
-        }
-        catch (JsonException)
-        {
-            // El cuerpo no JSON no cambia el manejo del error HTTP; no se registra para evitar exponer datos.
-        }
-
-        return null;
-    }
-
-    private static string? ObtenerTextoRespuesta(JsonElement response)
-    {
-        if (!response.TryGetProperty("output", out var output) || output.ValueKind != JsonValueKind.Array)
-            return null;
-
-        var text = new StringBuilder();
-        foreach (var item in output.EnumerateArray())
-        {
-            if (!item.TryGetProperty("type", out var itemType) ||
-                itemType.GetString() != "message" ||
-                !item.TryGetProperty("content", out var content) ||
-                content.ValueKind != JsonValueKind.Array)
-                continue;
-
-            foreach (var part in content.EnumerateArray())
-            {
-                if (part.TryGetProperty("type", out var partType) &&
-                    partType.GetString() == "output_text" &&
-                    part.TryGetProperty("text", out var value) &&
-                    value.ValueKind == JsonValueKind.String)
-                {
-                    text.Append(value.GetString());
-                }
-            }
-        }
-
-        return text.Length == 0 ? null : text.ToString();
+        return RespuestaFrecuente(pregunta, platillos);
     }
 
     private static string RespuestaFrecuente(string pregunta, IReadOnlyCollection<PlatilloDisponible> platillos)
@@ -241,9 +107,8 @@ public class AsistenteService(
 
     private static string Normalizar(string texto) =>
         string.Concat(texto.Normalize(NormalizationForm.FormD)
-            .Where(caracter => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(caracter) !=
-                               System.Globalization.UnicodeCategory.NonSpacingMark))
-        .Normalize(NormalizationForm.FormC);
+            .Where(caracter => CharUnicodeInfo.GetUnicodeCategory(caracter) != UnicodeCategory.NonSpacingMark))
+            .Normalize(NormalizationForm.FormC);
 
     private static bool Contiene(string texto, params string[] palabras) =>
         palabras.Any(texto.Contains);

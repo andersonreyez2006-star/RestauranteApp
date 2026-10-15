@@ -10,7 +10,7 @@ using RestauranteApp.Services;
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllersWithViews();
 builder.Services.AddDbContext<AppDbContext>(o => o.UseSqlServer(builder.Configuration.GetConnectionString("Default")));
-builder.Services.AddHttpClient<AsistenteService>();
+builder.Services.AddScoped<AsistenteService>();
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
