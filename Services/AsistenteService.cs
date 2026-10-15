@@ -38,6 +38,7 @@ public class AsistenteService(
             string.IsNullOrWhiteSpace(key) ||
             string.IsNullOrWhiteSpace(model))
         {
+            logger.LogWarning("Falta configuración de Foundry; se usará la respuesta frecuente.");
             return RespuestaFrecuente(pregunta, platillos);
         }
 
@@ -77,7 +78,11 @@ public class AsistenteService(
             using var response = await http.SendAsync(request, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
-                logger.LogWarning("El servicio de IA respondió con el estado {StatusCode}; se usará la respuesta frecuente.", response.StatusCode);
+                var providerError = await LeerCodigoErrorAsync(response, cancellationToken);
+                logger.LogWarning(
+                    "Foundry respondió con HTTP {StatusCode} y código {ProviderError}; se usará la respuesta frecuente.",
+                    (int)response.StatusCode,
+                    providerError ?? "no disponible");
                 return RespuestaFrecuente(pregunta, platillos);
             }
 
@@ -103,6 +108,29 @@ public class AsistenteService(
             logger.LogWarning(exception, "El servicio de IA devolvió una respuesta no válida; se usará la respuesta frecuente.");
             return RespuestaFrecuente(pregunta, platillos);
         }
+    }
+
+    private static async Task<string?> LeerCodigoErrorAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+            if (document.RootElement.TryGetProperty("error", out var error) &&
+                error.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var property in new[] { "code", "type" })
+                {
+                    if (error.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String)
+                        return value.GetString();
+                }
+            }
+        }
+        catch (JsonException)
+        {
+            // El cuerpo no JSON no cambia el manejo del error HTTP; no se registra para evitar exponer datos.
+        }
+
+        return null;
     }
 
     private static string? ObtenerTextoRespuesta(JsonElement response)
@@ -137,44 +165,85 @@ public class AsistenteService(
     private static string RespuestaFrecuente(string pregunta, IReadOnlyCollection<PlatilloDisponible> platillos)
     {
         var texto = pregunta.Trim().ToLowerInvariant();
+        var textoNormalizado = Normalizar(texto);
+        var disponibles = platillos.ToList();
 
-        if (Contiene(texto, "menu", "menú", "platillo", "platillos", "comida", "venden", "ofrecen"))
+        if (Contiene(textoNormalizado, "gracias", "muchas gracias", "te agradezco"))
         {
-            var disponibles = platillos.ToList();
+            return "¡Con gusto! ¿Quieres consultar algo más del menú o necesitas ayuda para hacer tu pedido?";
+        }
+
+        if (Contiene(textoNormalizado, "hola", "buenos dias", "buenas tardes", "buenas noches"))
+        {
+            return "¡Hola! Puedo ayudarte con el menú, los precios y cómo hacer un pedido en mesa. ¿Qué te gustaría saber?";
+        }
+
+        if (Contiene(textoNormalizado, "mas barato", "menor precio", "mas economico", "mas economica"))
+        {
+            var masBarato = disponibles.OrderBy(p => p.Precio).FirstOrDefault();
+            return masBarato is null
+                ? "Por el momento no hay platillos disponibles. Consulta nuevamente más tarde."
+                : $"El platillo de menor precio es {masBarato.Nombre} y cuesta ${masBarato.Precio:N2}.";
+        }
+
+        if (Contiene(textoNormalizado, "mas caro", "mayor precio", "mas costoso", "mas costosa"))
+        {
+            var masCaro = disponibles.OrderByDescending(p => p.Precio).FirstOrDefault();
+            return masCaro is null
+                ? "Por el momento no hay platillos disponibles. Consulta nuevamente más tarde."
+                : $"El platillo de mayor precio es {masCaro.Nombre} y cuesta ${masCaro.Precio:N2}.";
+        }
+
+        if (Contiene(textoNormalizado, "precio", "cuesta", "cuestan", "vale", "valen"))
+        {
+            var platilloConsultado = disponibles.FirstOrDefault(p =>
+                textoNormalizado.Contains(Normalizar(p.Nombre), StringComparison.Ordinal));
+            return platilloConsultado is not null
+                ? $"{platilloConsultado.Nombre} cuesta ${platilloConsultado.Precio:N2}. ¿Quieres saber algo más sobre el menú?"
+                : disponibles.Count == 0
+                    ? "Por el momento no hay platillos disponibles. Consulta nuevamente más tarde."
+                    : "Estos son los precios actuales: " +
+                      string.Join(", ", disponibles.Take(8).Select(p => $"{p.Nombre} (${p.Precio:N2})")) +
+                      ". ¿Quieres saber el precio de alguno en particular?";
+        }
+
+        if (Contiene(textoNormalizado, "menu", "platillo", "comida", "venden", "ofrecen"))
+        {
             return disponibles.Count == 0
                 ? "Por el momento no hay platillos disponibles. Consulta nuevamente más tarde."
-                : "Puedes ver el menú actualizado en la sección Menú. Por ahora tenemos: " +
-                  string.Join(", ", disponibles.Take(6).Select(p => $"{p.Nombre} (${p.Precio:N2})")) +
-                  ". Los precios y existencias se muestran junto a cada platillo.";
+                : "Estos son algunos platillos disponibles: " +
+                  string.Join(", ", disponibles.Take(8).Select(p => $"{p.Nombre} (${p.Precio:N2})")) +
+                  ". ¿Te interesa conocer el precio o la disponibilidad de alguno?";
         }
 
-        if (Contiene(texto, "pedir", "pedido", "orden", "ordenar", "comprar"))
+        if (Contiene(textoNormalizado, "pedir", "pedido", "orden", "ordenar", "comprar"))
         {
-            return "Para pedir, abre “Pedir en mesa”, selecciona tu mesa, indica la cantidad de cada platillo y pulsa “Enviar pedido a cocina”.";
+            return "¡Claro! Abre “Pedir en mesa”, selecciona tu mesa, indica la cantidad de cada platillo y pulsa “Enviar pedido a cocina”. ¿Quieres que te ayude a elegir algo del menú?";
         }
 
-        if (Contiene(texto, "mesa", "sentado", "sentada"))
+        if (Contiene(textoNormalizado, "mesa", "sentado", "sentada"))
         {
             return "En “Pedir en mesa” puedes seleccionar una mesa libre antes de elegir tus platillos.";
         }
 
-        if (Contiene(texto, "precio", "cuesta", "cuestan", "vale", "valen"))
-        {
-            return "Los precios vigentes aparecen en las tarjetas del menú. Dime el nombre del platillo o revisa la sección Menú.";
-        }
-
-        if (Contiene(texto, "ingrediente", "contiene", "alergia", "alérgico", "alergico"))
+        if (Contiene(textoNormalizado, "ingrediente", "contiene", "alergia", "alergico"))
         {
             return "Las descripciones del menú muestran la información disponible de cada platillo. Para confirmar ingredientes o alérgenos, consulta directamente con el personal.";
         }
 
-        if (Contiene(texto, "horario", "abren", "abierto", "cierran", "ubicacion", "ubicación", "direccion", "dirección", "pago", "pagar"))
+        if (Contiene(textoNormalizado, "horario", "abren", "abierto", "cierran", "ubicacion", "direccion", "pago", "pagar"))
         {
             return "No tengo esa información confirmada. Por favor, consulta directamente con el personal del restaurante.";
         }
 
-        return "Puedo ayudarte con el menú, precios y cómo hacer un pedido en mesa. Para otra consulta específica, pregunta al personal del restaurante.";
+        return "Puedo ayudarte con los platillos, precios y cómo hacer un pedido en mesa. Cuéntame qué necesitas saber y te ayudo.";
     }
+
+    private static string Normalizar(string texto) =>
+        string.Concat(texto.Normalize(NormalizationForm.FormD)
+            .Where(caracter => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(caracter) !=
+                               System.Globalization.UnicodeCategory.NonSpacingMark))
+        .Normalize(NormalizationForm.FormC);
 
     private static bool Contiene(string texto, params string[] palabras) =>
         palabras.Any(texto.Contains);
