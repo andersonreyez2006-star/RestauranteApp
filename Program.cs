@@ -64,14 +64,18 @@ using (var scope = app.Services.CreateScope())
             ALTER TABLE dbo.Ordenes ALTER COLUMN IdUsuario int NULL;
         IF COL_LENGTH('dbo.Ordenes', 'TokenPedidoPublico') IS NULL
             ALTER TABLE dbo.Ordenes ADD TokenPedidoPublico nvarchar(64) NULL;
-        IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.Ordenes') AND name = 'UX_Ordenes_TokenPedidoPublico')
-            CREATE UNIQUE INDEX UX_Ordenes_TokenPedidoPublico ON dbo.Ordenes(TokenPedidoPublico) WHERE TokenPedidoPublico IS NOT NULL;
         IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.Facturas') AND name = 'UX_Facturas_IdOrden')
         BEGIN
             IF EXISTS (SELECT IdOrden FROM dbo.Facturas GROUP BY IdOrden HAVING COUNT(*) > 1)
                 THROW 51000, 'Hay órdenes con facturas duplicadas. Corrija esos registros antes de iniciar la aplicación.', 1;
             CREATE UNIQUE INDEX UX_Facturas_IdOrden ON dbo.Facturas(IdOrden);
         END;
+        """);
+    // SQL Server compiles a batch before applying ALTER TABLE; create the index only after
+    // the preceding batch has added TokenPedidoPublico to older installations.
+    db.Database.ExecuteSqlRaw("""
+        IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.Ordenes') AND name = 'UX_Ordenes_TokenPedidoPublico')
+            CREATE UNIQUE INDEX UX_Ordenes_TokenPedidoPublico ON dbo.Ordenes(TokenPedidoPublico) WHERE TokenPedidoPublico IS NOT NULL;
         """);
     if (!db.Usuarios.Any())
     {
