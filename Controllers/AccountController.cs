@@ -41,6 +41,11 @@ public class AccountController(AppDbContext db, IPasswordHasher<Usuario> hasher)
     // Destino visible cuando el usuario inició sesión pero no tiene el rol requerido por una ruta.
     public IActionResult Denegado() => View();
 
-    // Mensaje genérico de respaldo para errores de aplicación no controlados por una acción concreta.
-    public IActionResult Error() => Content("Ocurrió un error inesperado. Intenta de nuevo.");
+    // Mensaje genérico de respaldo sin exponer detalles internos de la excepción.
+    public IActionResult Error()
+    {
+        Response.StatusCode = StatusCodes.Status500InternalServerError;
+        ViewData["RequestId"] = HttpContext.TraceIdentifier;
+        return View();
+    }
 }

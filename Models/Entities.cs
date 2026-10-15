@@ -67,12 +67,14 @@ public class Orden {
     public DateTime Fecha { get; set; } = DateTime.Now;
     // Flujo principal: Pendiente, En preparación, Lista y Facturada.
     [Required, StringLength(30)] public string Estado { get; set; } = "Pendiente";
-    // Mesa obligatoria de la orden; al facturar se marca como Libre.
+    // Mesa obligatoria; queda ocupada hasta que todas sus órdenes se hayan facturado.
     public int IdMesa { get; set; }
     public Mesa? Mesa { get; set; }
     // Personal que creó la orden; es nulo en pedidos enviados directamente por clientes anónimos.
     public int? IdUsuario { get; set; }
     public Usuario? Usuario { get; set; }
+    // Hash de un token aleatorio de cliente anónimo, válido solo para continuar mientras la orden esté abierta.
+    [StringLength(64)] public string? TokenPedidoPublico { get; set; }
     // Líneas de productos de la orden, incluyendo cantidad y precio congelado al momento de pedir.
     public List<DetalleOrden> Detalles { get; set; } = new();
 }
