@@ -1,9 +1,14 @@
 @* Model contiene la mesa, los detalles y los platillos. Las comprobaciones de rol/estado ocultan
    acciones no disponibles en la interfaz; el controlador repite las mismas reglas en el servidor. *@
 @model Orden
-@{ ViewData["Title"] = "Orden " + Model.IdOrden; var cerrada = Model.Estado == "Facturada"; var total = Model.Detalles.Sum(d => d.Subtotal);
+@{ ViewData["Title"] = "Orden " + Model.IdOrden; var facturaExistenteId = ViewBag.FacturaExistenteId as int?; var cerrada = Model.Estado == "Facturada" || facturaExistenteId.HasValue; var total = Model.Detalles.Sum(d => d.Subtotal);
    var puedeEditar = !cerrada && (User.IsInRole("Administrador") || User.IsInRole("Mesero")); }
 <h2>Orden #@Model.IdOrden · Mesa @Model.Mesa?.NumeroMesa <span class="badge bg-secondary">@Model.Estado</span></h2>
+@if (facturaExistenteId.HasValue) {
+  <div class="alert alert-info">Esta orden ya está facturada. No se puede cobrar ni modificar de nuevo.
+    <a asp-controller="Facturas" asp-action="Details" asp-route-id="@facturaExistenteId.Value">Ver factura #@facturaExistenteId.Value</a>
+  </div>
+}
 <table class="table"><thead><tr><th>Platillo</th><th>Cant.</th><th>Precio</th><th>Subtotal</th><th></th></tr></thead><tbody>
 @* total es la suma de importes guardados en cada detalle, no del precio actual del menú. *@
 @foreach (var d in Model.Detalles) {
