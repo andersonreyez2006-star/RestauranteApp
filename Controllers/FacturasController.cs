@@ -40,8 +40,8 @@ public class FacturasController(AppDbContext db) : Controller
         var facturaExistente = await db.Facturas.AsNoTracking().FirstOrDefaultAsync(f => f.IdOrden == idOrden);
         if (facturaExistente is not null)
         {
-            TempData["Error"] = "Esta orden ya tiene una factura.";
-            return RedirectToAction(nameof(Details), new { id = facturaExistente.IdFactura });
+            TempData["Ok"] = $"Esta orden ya tiene la factura #{facturaExistente.IdFactura}; no se realizó otro cobro.";
+            return RedirectToAction(nameof(Index));
         }
 
         var orden = await db.Ordenes.Include(x => x.Detalles).Include(x => x.Mesa).FirstOrDefaultAsync(x => x.IdOrden == idOrden);
@@ -73,8 +73,8 @@ public class FacturasController(AppDbContext db) : Controller
             facturaExistente = await db.Facturas.AsNoTracking().FirstOrDefaultAsync(x => x.IdOrden == idOrden);
             if (facturaExistente is null) throw;
 
-            TempData["Error"] = "Esta orden ya fue facturada.";
-            return RedirectToAction(nameof(Details), new { id = facturaExistente.IdFactura });
+            TempData["Ok"] = $"Esta orden ya tiene la factura #{facturaExistente.IdFactura}; no se realizó otro cobro.";
+            return RedirectToAction(nameof(Index));
         }
 
         return RedirectToAction(nameof(Details), new { id = f.IdFactura });

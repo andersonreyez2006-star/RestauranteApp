@@ -133,6 +133,10 @@ public class OrdenesController(AppDbContext db) : Controller
     {
         var orden = await db.Ordenes.Include(x => x.Mesa).Include(x => x.Detalles).ThenInclude(d => d.Platillo).FirstOrDefaultAsync(x => x.IdOrden == id);
         if (orden == null) return NotFound();
+        ViewBag.FacturaExistenteId = await db.Facturas.AsNoTracking()
+            .Where(f => f.IdOrden == id)
+            .Select(f => (int?)f.IdFactura)
+            .FirstOrDefaultAsync();
         ViewBag.Platillos = new SelectList(db.Platillos.Where(p => p.Estado == "Disponible").OrderBy(p => p.Nombre), "IdPlatillo", "Nombre");
         return View(orden);
     }
@@ -143,7 +147,8 @@ public class OrdenesController(AppDbContext db) : Controller
     {
         var orden = await db.Ordenes.FindAsync(id); var plato = await db.Platillos.FindAsync(idPlatillo);
         if (orden == null || plato == null) return NotFound();
-        if (orden.Estado == "Facturada" || cantidad < 1 || plato.Estado != "Disponible")
+        var facturaExiste = await db.Facturas.AnyAsync(f => f.IdOrden == id);
+        if (facturaExiste || orden.Estado == "Facturada" || cantidad < 1 || plato.Estado != "Disponible")
         { TempData["Error"] = "No se pudo agregar el platillo."; return RedirectToAction(nameof(Details), new { id }); }
         if (cantidad > plato.Existencias) { TempData["Error"] = "No hay suficientes existencias."; return RedirectToAction(nameof(Details), new { id }); }
         // El descuento y la línea se guardan juntos. Si se agrega algo después de marcar como Lista,
@@ -162,6 +167,13 @@ public class OrdenesController(AppDbContext db) : Controller
         var d = await db.Detalles.Include(x => x.Orden).FirstOrDefaultAsync(x => x.IdDetalle == idDetalle);
         if (d == null) return NotFound();
         var id = d.IdOrden;
+        var facturaExiste = await db.Facturas.AnyAsync(f => f.IdOrden == id);
+        if (facturaExiste)
+        {
+            TempData["Error"] = "No se pueden modificar los artículos de una orden ya facturada.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
         // No se permite modificar una orden cerrada; en una abierta se devuelve el stock y se elimina la línea.
         if (d.Orden!.Estado != "Facturada") { var p = await db.Platillos.FindAsync(d.IdPlatillo); if (p != null) { p.Existencias += d.Cantidad; p.Estado = "Disponible"; } db.Detalles.Remove(d); await db.SaveChangesAsync(); }
         return RedirectToAction(nameof(Details), new { id });
