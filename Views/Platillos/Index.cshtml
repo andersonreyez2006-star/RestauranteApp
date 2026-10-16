@@ -1,7 +1,7 @@
 @* Model contiene platillos con categoría. Visitantes reciben tarjetas del catálogo vendible;
    administradores reciben tabla de inventario con acciones de mantenimiento. *@
 @model IEnumerable<Platillo>
-@{ ViewData["Title"] = "Menú"; var esCliente = !User.IsInRole("Administrador"); }
+@{ ViewData["Title"] = "Menú"; var esCliente = User.Identity?.IsAuthenticated != true; }
 <div class="menu-heading d-flex justify-content-between align-items-end mb-4">
   <div>
     <span class="eyebrow">Sabor hecho en casa</span>
@@ -29,7 +29,9 @@
               </div>
               <h3 class="dish-name">@p.Nombre</h3>
               @if (!string.IsNullOrWhiteSpace(p.Descripcion)) { <p class="dish-description">@p.Descripcion</p> }
-              <a class="dish-order-link" asp-controller="Ordenes" asp-action="CreatePublic">Pedir en mesa <span aria-hidden="true">→</span></a>
+              @if (esCliente) {
+                <a class="dish-order-link" asp-controller="Ordenes" asp-action="CreatePublic">Pedir en mesa <span aria-hidden="true">→</span></a>
+              }
             </div>
           </article>
         </div>
