@@ -32,6 +32,9 @@ public class OrdenesController(AppDbContext db) : Controller
     // Catálogo público de pedido. Solo expone mesas libres y productos disponibles con stock positivo.
     public async Task<IActionResult> CreatePublic()
     {
+        if (User.Identity?.IsAuthenticated == true)
+            return Forbid();
+
         var mesas = await db.Mesas.Where(m => m.Estado == "Libre").ToListAsync();
         var pedidoActivo = await GetPedidoPublicoActivoAsync();
         if (pedidoActivo.Mesa is not null && mesas.All(m => m.IdMesa != pedidoActivo.Mesa.IdMesa))
@@ -50,6 +53,9 @@ public class OrdenesController(AppDbContext db) : Controller
     [HttpPost, AllowAnonymous, ValidateAntiForgeryToken]
     public async Task<IActionResult> CreatePublic(int idMesa, Dictionary<int, int> cantidades)
     {
+        if (User.Identity?.IsAuthenticated == true)
+            return Forbid();
+
         var mesa = await db.Mesas.FindAsync(idMesa);
         var pedidoActivo = await GetPedidoPublicoActivoAsync();
         var puedeContinuarEnMesa = pedidoActivo.Mesa?.IdMesa == idMesa;
