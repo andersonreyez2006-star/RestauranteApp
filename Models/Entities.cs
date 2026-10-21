@@ -85,8 +85,10 @@ public class DetalleOrden {
     // Unidades de este platillo solicitadas en la orden.
     [Range(1, 100)] public int Cantidad { get; set; }
     // Precio por unidad copiado desde Platillo al agregarlo, no recalculado al consultar después.
+    [Range(typeof(decimal), "0.01", "99999999.99", ErrorMessage = "El precio debe ser mayor que $0.00")]
     [Column(TypeName = "decimal(10,2)")] public decimal PrecioUnitario { get; set; }
     // Importe de línea calculado como Cantidad por PrecioUnitario y usado para subtotal/factura.
+    [Range(typeof(decimal), "0.01", "99999999.99", ErrorMessage = "El subtotal debe ser mayor que $0.00")]
     [Column(TypeName = "decimal(10,2)")] public decimal Subtotal { get; set; }
     public int IdOrden { get; set; }
     public Orden? Orden { get; set; }
@@ -101,10 +103,12 @@ public class Factura {
     // Fecha de emisión, distinta de la fecha de creación de la orden.
     public DateTime Fecha { get; set; } = DateTime.Now;
     // Suma de los subtotales de las líneas de la orden, antes de impuestos.
+    [Range(typeof(decimal), "0.01", "99999999.99", ErrorMessage = "El subtotal debe ser mayor que $0.00")]
     [Column(TypeName = "decimal(10,2)")] public decimal Subtotal { get; set; }
     // Impuesto calculado por el controlador con la tasa configurada para el restaurante.
     [Column(TypeName = "decimal(10,2)")] public decimal IVA { get; set; }
     // Total a cobrar: Subtotal más IVA.
+    [Range(typeof(decimal), "0.01", "99999999.99", ErrorMessage = "El total debe ser mayor que $0.00")]
     [Column(TypeName = "decimal(10,2)")] public decimal Total { get; set; }
     public int IdOrden { get; set; }
     public Orden? Orden { get; set; }

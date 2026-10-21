@@ -2,7 +2,8 @@
    acciones no disponibles en la interfaz; el controlador repite las mismas reglas en el servidor. *@
 @model Orden
 @{ ViewData["Title"] = "Orden " + Model.IdOrden; var facturaExistenteId = ViewBag.FacturaExistenteId as int?; var cerrada = Model.Estado == "Facturada" || facturaExistenteId.HasValue; var total = Model.Detalles.Sum(d => d.Subtotal);
-   var puedeEditar = !cerrada && (User.IsInRole("Administrador") || User.IsInRole("Mesero")); }
+   var puedeEditar = !cerrada && (User.IsInRole("Administrador") || User.IsInRole("Mesero"));
+   var puedeAgregar = !cerrada && (puedeEditar || User.IsInRole("Cajero")); }
 <h2>Orden #@Model.IdOrden · Mesa @Model.Mesa?.NumeroMesa <span class="badge bg-secondary">@Model.Estado</span></h2>
 @if (facturaExistenteId.HasValue) {
   <div class="alert alert-info">Esta orden ya está facturada. No se puede cobrar ni modificar de nuevo.
@@ -17,8 +18,8 @@
   <td class="text-end">@if (puedeEditar) { <form method="post" asp-action="RemoveItem" asp-route-idDetalle="@d.IdDetalle"><button class="btn btn-sm btn-outline-danger">Quitar</button></form> }</td></tr> }
 </tbody><tfoot><tr><th colspan="3" class="text-end">Subtotal</th><th>$@total.ToString("N2")</th><th></th></tr></tfoot></table>
 </div>
-@if (puedeEditar) {
-  @* Agregar productos solo está habilitado para una orden no facturada y personal con rol autorizado. *@
+@if (puedeAgregar) {
+  @* El subtotal actualizado de la orden se utiliza al emitir la factura; las facturas existentes son inmutables. *@
   <form method="post" asp-action="AddItem" asp-route-id="@Model.IdOrden" class="row g-2 mb-4 order-item-form" style="max-width:560px">
     <div class="col-7"><select name="idPlatillo" class="form-select" asp-items="@(ViewBag.Platillos as SelectList)"></select></div>
     <div class="col-3"><input name="cantidad" type="number" min="1" value="1" class="form-control" /></div>

@@ -39,8 +39,8 @@ public class PlatillosController(AppDbContext db) : Controller
     {
         IQueryable<Platillo> menu = db.Platillos.Include(p => p.Categoria);
         // El público solo ve artículos vendibles; administración también necesita ver agotados.
-        if (!User.IsInRole("Administrador")) menu = menu.Where(p => p.Estado == "Disponible" && p.Existencias > 0);
-        return View(await menu.OrderBy(p => p.Nombre).ToListAsync());
+        if (!User.IsInRole("Administrador")) menu = menu.Where(p => p.Estado == "Disponible" && p.Existencias > 0 && p.Precio > 0);
+        return View(await menu.OrderBy(p => p.Categoria!.Nombre).ThenBy(p => p.Nombre).ToListAsync());
     }
 
     // Inicializa el formulario y su lista de categorías para crear un producto.

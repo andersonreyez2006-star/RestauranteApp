@@ -21,11 +21,25 @@ public class OrdenesController(AppDbContext db) : Controller
         View(await db.Ordenes.Include(x => x.Mesa).Include(x => x.Usuario).Include(x => x.Detalles).OrderByDescending(x => x.Fecha).ToListAsync());
 
     [Authorize(Roles = "Administrador,Mesero")]
-    // Formulario interno para elegir una mesa libre; la acción que guarda vuelve a comprobar el estado.
-    public IActionResult Create()
+    // Formulario interno para elegir una mesa y sus productos; el POST vuelve a validar todo contra SQL.
+    public async Task<IActionResult> Create()
     {
-        ViewBag.Mesas = new SelectList(db.Mesas.Where(m => m.Estado == "Libre").OrderBy(m => m.NumeroMesa), "IdMesa", "NumeroMesa");
+        await CargarFormularioOrdenAsync();
         return View();
+    }
+
+    private async Task CargarFormularioOrdenAsync()
+    {
+        ViewBag.Mesas = new SelectList(await db.Mesas
+            .Where(m => m.Estado == "Libre")
+            .OrderBy(m => m.NumeroMesa)
+            .ToListAsync(), "IdMesa", "NumeroMesa");
+        ViewBag.Platillos = await db.Platillos
+            .Include(p => p.Categoria)
+            .Where(p => p.Estado == "Disponible" && p.Existencias > 0 && p.Precio > 0)
+            .OrderBy(p => p.Categoria!.Nombre)
+            .ThenBy(p => p.Nombre)
+            .ToListAsync();
     }
 
     [AllowAnonymous]
@@ -44,7 +58,9 @@ public class OrdenesController(AppDbContext db) : Controller
         ViewBag.MesaSeleccionada = pedidoActivo.Mesa?.IdMesa;
         ViewBag.NumeroPedidoEnviado = TempData["NumeroPedidoEnviado"];
         ViewBag.NumeroMesaPedidoEnviado = TempData["NumeroMesaPedidoEnviado"];
-        ViewBag.Platillos = await db.Platillos.Include(p => p.Categoria).Where(p => p.Estado == "Disponible" && p.Existencias > 0).OrderBy(p => p.Categoria!.Nombre).ThenBy(p => p.Nombre).ToListAsync();
+        ViewBag.Platillos = await db.Platillos.Include(p => p.Categoria)
+            .Where(p => p.Estado == "Disponible" && p.Existencias > 0 && p.Precio > 0)
+            .OrderBy(p => p.Categoria!.Nombre).ThenBy(p => p.Nombre).ToListAsync();
         return View();
     }
 
@@ -67,8 +83,13 @@ public class OrdenesController(AppDbContext db) : Controller
         var platos = await db.Platillos.Where(p => ids.Contains(p.IdPlatillo) && p.Estado == "Disponible").ToListAsync();
         // Rechaza ids que ya no están disponibles, cantidades mayores que el límite del formulario
         // o stock insuficiente; esta validación evita pedidos manipulados desde el navegador.
-        if (platos.Count != pedido.Count || pedido.Any(x => x.Value > 20 || platos.Single(p => p.IdPlatillo == x.Key).Existencias < x.Value))
+        if (platos.Count != pedido.Count || pedido.Any(x =>
+            x.Value > 20 ||
+            platos.Single(p => p.IdPlatillo == x.Key).Precio <= 0 ||
+            platos.Single(p => p.IdPlatillo == x.Key).Existencias < x.Value))
         { TempData["Error"] = "Revisa las cantidades disponibles del menú."; return RedirectToAction(nameof(CreatePublic)); }
+        if (pedido.Sum(x => platos.Single(p => p.IdPlatillo == x.Key).Precio * x.Value) <= 0)
+        { TempData["Error"] = "El total del pedido debe ser mayor que $0.00."; return RedirectToAction(nameof(CreatePublic)); }
         var orden = new Orden { IdMesa = idMesa, Estado = "Pendiente" };
         foreach (var item in pedido)
         {
@@ -124,13 +145,51 @@ public class OrdenesController(AppDbContext db) : Controller
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
 
     [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "Administrador,Mesero")]
-    // Abre una orden vacía desde el flujo del personal y registra quién la creó en IdUsuario.
-    public async Task<IActionResult> Create(int idMesa)
+    // Crea la orden con al menos un producto vendible, descuenta inventario y registra al empleado para auditoría.
+    public async Task<IActionResult> Create(int idMesa, Dictionary<int, int>? cantidades)
     {
         var mesa = await db.Mesas.FindAsync(idMesa);
-        if (mesa == null || mesa.Estado != "Libre") { TempData["Error"] = "La mesa no está disponible."; return RedirectToAction(nameof(Create)); }
+        if (mesa == null || mesa.Estado != "Libre")
+        { TempData["Error"] = "La mesa no está disponible."; return RedirectToAction(nameof(Create)); }
+
+        var pedido = (cantidades ?? new Dictionary<int, int>()).Where(x => x.Value > 0).ToList();
+        if (pedido.Count == 0)
+        { TempData["Error"] = "Selecciona al menos un platillo para crear el pedido."; return RedirectToAction(nameof(Create)); }
+
+        var ids = pedido.Select(x => x.Key).ToList();
+        var platos = await db.Platillos
+            .Where(p => ids.Contains(p.IdPlatillo) && p.Estado == "Disponible")
+            .ToListAsync();
+        if (platos.Count != pedido.Count || pedido.Any(x =>
+            x.Value > 20 ||
+            platos.Single(p => p.IdPlatillo == x.Key).Precio <= 0 ||
+            platos.Single(p => p.IdPlatillo == x.Key).Existencias < x.Value))
+        {
+            TempData["Error"] = "Revisa las cantidades y existencias de los platillos.";
+            return RedirectToAction(nameof(Create));
+        }
+
+        var subtotal = pedido.Sum(x => platos.Single(p => p.IdPlatillo == x.Key).Precio * x.Value);
+        if (subtotal <= 0)
+        { TempData["Error"] = "El total del pedido debe ser mayor que $0.00."; return RedirectToAction(nameof(Create)); }
+
         var orden = new Orden { IdMesa = idMesa, IdUsuario = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!) };
-        mesa.Estado = "Ocupada"; db.Ordenes.Add(orden); await db.SaveChangesAsync();
+        foreach (var item in pedido)
+        {
+            var plato = platos.Single(p => p.IdPlatillo == item.Key);
+            plato.Existencias -= item.Value;
+            if (plato.Existencias == 0) plato.Estado = "Agotado";
+            orden.Detalles.Add(new DetalleOrden
+            {
+                IdPlatillo = plato.IdPlatillo,
+                Cantidad = item.Value,
+                PrecioUnitario = plato.Precio,
+                Subtotal = plato.Precio * item.Value
+            });
+        }
+        mesa.Estado = "Ocupada";
+        db.Ordenes.Add(orden);
+        await db.SaveChangesAsync();
         return RedirectToAction(nameof(Details), new { id = orden.IdOrden });
     }
 
@@ -143,25 +202,50 @@ public class OrdenesController(AppDbContext db) : Controller
             .Where(f => f.IdOrden == id)
             .Select(f => (int?)f.IdFactura)
             .FirstOrDefaultAsync();
-        ViewBag.Platillos = new SelectList(db.Platillos.Where(p => p.Estado == "Disponible").OrderBy(p => p.Nombre), "IdPlatillo", "Nombre");
+        ViewBag.Platillos = new SelectList(db.Platillos
+            .Where(p => p.Estado == "Disponible" && p.Existencias > 0 && p.Precio > 0)
+            .OrderBy(p => p.Nombre), "IdPlatillo", "Nombre");
         return View(orden);
     }
 
-    [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "Administrador,Mesero")]
+    [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "Administrador,Mesero,Cajero")]
     // Agrega una línea solo si la orden sigue abierta y el producto está disponible con stock suficiente.
     public async Task<IActionResult> AddItem(int id, int idPlatillo, int cantidad)
     {
         var orden = await db.Ordenes.FindAsync(id); var plato = await db.Platillos.FindAsync(idPlatillo);
         if (orden == null || plato == null) return NotFound();
         var facturaExiste = await db.Facturas.AnyAsync(f => f.IdOrden == id);
-        if (facturaExiste || orden.Estado == "Facturada" || cantidad < 1 || plato.Estado != "Disponible")
+        if (facturaExiste || orden.Estado == "Facturada" || cantidad < 1 || plato.Estado != "Disponible" || plato.Precio <= 0)
         { TempData["Error"] = "No se pudo agregar el platillo."; return RedirectToAction(nameof(Details), new { id }); }
+        if (cantidad > 100)
+        { TempData["Error"] = "La cantidad máxima por platillo es 100."; return RedirectToAction(nameof(Details), new { id }); }
         if (cantidad > plato.Existencias) { TempData["Error"] = "No hay suficientes existencias."; return RedirectToAction(nameof(Details), new { id }); }
-        // El descuento y la línea se guardan juntos. Si se agrega algo después de marcar como Lista,
-        // la orden vuelve a Pendiente para que cocina procese el nuevo producto.
+        // Combina la cantidad en una sola línea cuando conserva el precio histórico de la orden.
+        // Si el precio cambió, crea otra línea para no alterar el importe de unidades ya pedidas.
+        var cantidadExistente = await db.Detalles
+            .Where(d => d.IdOrden == id && d.IdPlatillo == idPlatillo)
+            .SumAsync(d => (int?)d.Cantidad) ?? 0;
+        var lineasExistentes = await db.Detalles
+            .Where(d => d.IdOrden == id && d.IdPlatillo == idPlatillo && d.PrecioUnitario == plato.Precio)
+            .ToListAsync();
+        if (cantidadExistente + cantidad > 100)
+        { TempData["Error"] = "La cantidad total de este platillo en la orden no puede superar 100."; return RedirectToAction(nameof(Details), new { id }); }
+
+        // El descuento y la actualización de la línea se guardan juntos. Si se agrega algo después
+        // de marcar como Lista, la orden vuelve a Pendiente para que cocina procese el nuevo producto.
         plato.Existencias -= cantidad;
         if (plato.Existencias == 0) plato.Estado = "Agotado";
-        db.Detalles.Add(new DetalleOrden { IdOrden = id, IdPlatillo = idPlatillo, Cantidad = cantidad, PrecioUnitario = plato.Precio, Subtotal = plato.Precio * cantidad });
+        if (lineasExistentes.Count > 0)
+        {
+            var linea = lineasExistentes[0];
+            linea.Cantidad += cantidad;
+            linea.Subtotal = linea.PrecioUnitario * linea.Cantidad;
+            db.Detalles.RemoveRange(lineasExistentes.Skip(1));
+        }
+        else
+        {
+            db.Detalles.Add(new DetalleOrden { IdOrden = id, IdPlatillo = idPlatillo, Cantidad = cantidad, PrecioUnitario = plato.Precio, Subtotal = plato.Precio * cantidad });
+        }
         if (orden.Estado == "Lista") orden.Estado = "Pendiente";
         await db.SaveChangesAsync(); return RedirectToAction(nameof(Details), new { id });
     }

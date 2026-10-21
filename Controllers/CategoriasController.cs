@@ -33,6 +33,9 @@ public class CategoriasController(AppDbContext db) : Controller
         var c = await db.Categorias.FindAsync(id); if (c == null) return NotFound();
         nombre = (nombre ?? "").Trim();
         if (nombre.Length is < 2 or > 100) TempData["Error"] = "El nombre debe tener entre 2 y 100 caracteres.";
+        else if (await db.Categorias.AnyAsync(x =>
+            x.IdCategoria != id && x.Nombre.ToLower() == nombre.ToLower()))
+            TempData["Error"] = "Ya existe esa categoría.";
         else { c.Nombre = nombre; await db.SaveChangesAsync(); TempData["Ok"] = "Categoría actualizada."; }
         return RedirectToAction(nameof(Index));
     }

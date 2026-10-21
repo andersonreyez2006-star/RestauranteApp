@@ -26,33 +26,36 @@ else {
 <form method="post" asp-action="CreatePublic" id="customer-order-form" class="customer-order-form">
   @* Se envía la clave de mesa para no depender de que el número visible sea único o manipulable. *@
   <div class="table-picker mb-4"><label class="form-label" for="idMesa">Tu mesa</label><select class="form-select" name="idMesa" id="idMesa" required><option value="" disabled selected="@(ViewBag.MesaSeleccionada == null ? "selected" : null)">Selecciona dónde estás sentado</option>@foreach (var mesa in mesas) { if (ViewBag.MesaSeleccionada == mesa.IdMesa) { <option value="@mesa.IdMesa" selected>Mesa @mesa.NumeroMesa · continuar pidiendo</option> } else { <option value="@mesa.IdMesa">Mesa @mesa.NumeroMesa</option> } }</select></div>
-  <div class="order-menu-heading"><h3>Elige tus platillos</h3><span>@platos.Count especialidades disponibles</span></div>
-  <div class="row g-4">
-  @foreach (var p in platos) {
-    <div class="col-sm-6 col-xl-4">
-      <article class="customer-menu-card order-dish-card h-100">
-        @if (p.Imagen is { Length: > 0 }) {
-          <img class="dish-photo" src="@Url.Action("Imagen", "Platillos", new { id = p.IdPlatillo })" alt="@p.Nombre" loading="lazy" />
-        } else {
-          <div class="dish-art" aria-hidden="true"><span>✦</span></div>
-        }
-        <div class="dish-content">
-          <div class="d-flex justify-content-between align-items-start gap-3">
-            <span class="dish-category">@(p.Categoria?.Nombre ?? "Especialidad")</span>
-            <span class="dish-price">$@p.Precio.ToString("N2")</span>
-          </div>
-          <h4 class="dish-name">@p.Nombre</h4>
-          @if (!string.IsNullOrWhiteSpace(p.Descripcion)) { <p class="dish-description">@p.Descripcion</p> }
-          <p class="dish-stock">@p.Existencias disponibles hoy</p>
-          <label class="form-label" for="q_@p.IdPlatillo">Cantidad</label>
-          @* El índice del campo es IdPlatillo y forma Dictionary<int,int>; max mejora UX,
-             pero el servidor vuelve a validar límite y stock porque el navegador puede alterarse. *@
-          <input id="q_@p.IdPlatillo" class="form-control" type="number" name="cantidades[@p.IdPlatillo]" min="0" max="@Math.Min(20, p.Existencias)" value="0" />
+  @foreach (var categoria in platos.GroupBy(p => new { p.IdCategoria, Nombre = p.Categoria?.Nombre ?? "Especialidad" })) {
+    <section class="menu-category-section" aria-labelledby="order-category-@categoria.Key.IdCategoria">
+      <div class="order-menu-heading"><h3 id="order-category-@categoria.Key.IdCategoria">@categoria.Key.Nombre</h3><span>@categoria.Count() platillo(s)</span></div>
+      <div class="row g-4">
+      @foreach (var p in categoria) {
+        <div class="col-sm-6 col-xl-4">
+          <article class="customer-menu-card order-dish-card h-100">
+            @if (p.Imagen is { Length: > 0 }) {
+              <img class="dish-photo" src="@Url.Action("Imagen", "Platillos", new { id = p.IdPlatillo })" alt="@p.Nombre" loading="lazy" />
+            } else {
+              <div class="dish-art" aria-hidden="true"><span>✦</span></div>
+            }
+            <div class="dish-content">
+              <div class="d-flex justify-content-between align-items-start gap-3">
+                <span class="dish-category">@categoria.Key.Nombre</span>
+                <span class="dish-price">$@p.Precio.ToString("N2")</span>
+              </div>
+              <h4 class="dish-name">@p.Nombre</h4>
+              @if (!string.IsNullOrWhiteSpace(p.Descripcion)) { <p class="dish-description">@p.Descripcion</p> }
+              <p class="dish-stock">@p.Existencias disponibles hoy</p>
+              <label class="form-label" for="q_@p.IdPlatillo">Cantidad</label>
+              @* El servidor vuelve a validar cantidad y existencias; los límites HTML solo mejoran la experiencia. *@
+              <input id="q_@p.IdPlatillo" class="form-control" type="number" name="cantidades[@p.IdPlatillo]" min="0" max="@Math.Min(20, p.Existencias)" value="0" />
+            </div>
+          </article>
         </div>
-      </article>
-    </div>
+      }
+      </div>
+    </section>
   }
-  </div>
   <div class="order-submit-bar"><span>Revisa las cantidades antes de enviar</span><button class="btn btn-primary btn-lg">Enviar pedido a cocina <span aria-hidden="true">→</span></button></div>
 </form>
 }
