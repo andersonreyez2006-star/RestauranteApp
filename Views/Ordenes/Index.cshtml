@@ -1,15 +1,42 @@
 @* Model es la lista de órdenes con mesa, usuario y detalles cargados. El subtotal se calcula
    a partir de los precios históricos de las líneas; el total con IVA aparece en la factura. *@
 @model IEnumerable<Orden>
-@{ ViewData["Title"] = "Órdenes"; }
+@{
+  ViewData["Title"] = "Órdenes";
+  var ordenes = Model.ToList();
+  var pendientes = ordenes.Where(o => o.Estado != "Facturada");
+  var facturadas = ordenes.Where(o => o.Estado == "Facturada");
+}
 <div class="d-flex justify-content-between mb-3"><h2>Órdenes</h2>
   @* La interfaz solo ofrece creación al personal autorizado; el controlador además restringe la acción. *@
   @if (User.IsInRole("Administrador") || User.IsInRole("Mesero")) { <a class="btn btn-primary" asp-action="Create">Nueva orden</a> }</div>
-<div class="table-responsive">
-<table class="table table-striped"><thead><tr><th>#</th><th>Mesa</th><th>Origen</th><th>Fecha</th><th>Estado</th><th>Total</th><th></th></tr></thead><tbody>
-@foreach (var o in Model) {
-  <tr><td>@o.IdOrden</td><td>@o.Mesa?.NumeroMesa</td><td>@(o.Usuario is null ? "Cliente" : "Personal")</td><td>@o.Fecha.ToString("dd/MM/yyyy HH:mm")</td><td>@o.Estado</td>
-      <td>$@o.Detalles.Sum(d => d.Subtotal).ToString("N2")</td>
-      <td><a class="btn btn-sm btn-outline-primary" asp-action="Details" asp-route-id="@o.IdOrden">Ver</a></td></tr> }
-</tbody></table>
-</div>
+@if (!ordenes.Any()) {
+  <div class="alert alert-info">Todavía no hay órdenes registradas.</div>
+}
+@foreach (var seccion in new[] {
+  (Titulo: "Pendientes de facturación", Descripcion: "Órdenes abiertas que aún no se han cobrado.", Ordenes: pendientes),
+  (Titulo: "Facturadas", Descripcion: "Órdenes cuyo cobro ya fue registrado.", Ordenes: facturadas)
+}) {
+  <section class="billing-order-section mb-4">
+    <div class="d-flex justify-content-between align-items-baseline gap-3 mb-2">
+      <div><h3 class="mb-1">@seccion.Titulo</h3><p class="text-muted mb-0">@seccion.Descripcion</p></div>
+      <span class="badge text-bg-light">@seccion.Ordenes.Count() orden(es)</span>
+    </div>
+    @if (seccion.Ordenes.Any()) {
+      <div class="table-responsive">
+        <table class="table table-striped">
+          <thead><tr><th>#</th><th>Mesa</th><th>Origen</th><th>Fecha</th><th>Estado</th><th>Subtotal</th><th></th></tr></thead>
+          <tbody>
+          @foreach (var o in seccion.Ordenes) {
+            <tr><td>@o.IdOrden</td><td>@o.Mesa?.NumeroMesa</td><td>@(o.Usuario is null ? "Cliente" : "Personal")</td><td>@o.Fecha.ToString("dd/MM/yyyy HH:mm")</td><td>@o.Estado</td>
+                <td>$@o.Detalles.Sum(d => d.Subtotal).ToString("N2")</td>
+                <td><a class="btn btn-sm btn-outline-primary" asp-action="Details" asp-route-id="@o.IdOrden">Ver</a></td></tr>
+          }
+          </tbody>
+        </table>
+      </div>
+    } else {
+      <div class="alert alert-light border mb-0">No hay órdenes en esta sección.</div>
+    }
+  </section>
+}

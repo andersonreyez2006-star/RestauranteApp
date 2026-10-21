@@ -238,7 +238,7 @@ public class OrdenesController(AppDbContext db) : Controller
         if (lineasExistentes.Count > 0)
         {
             var linea = lineasExistentes[0];
-            linea.Cantidad += cantidad;
+            linea.Cantidad = lineasExistentes.Sum(d => d.Cantidad) + cantidad;
             linea.Subtotal = linea.PrecioUnitario * linea.Cantidad;
             db.Detalles.RemoveRange(lineasExistentes.Skip(1));
         }
@@ -247,7 +247,9 @@ public class OrdenesController(AppDbContext db) : Controller
             db.Detalles.Add(new DetalleOrden { IdOrden = id, IdPlatillo = idPlatillo, Cantidad = cantidad, PrecioUnitario = plato.Precio, Subtotal = plato.Precio * cantidad });
         }
         if (orden.Estado == "Lista") orden.Estado = "Pendiente";
-        await db.SaveChangesAsync(); return RedirectToAction(nameof(Details), new { id });
+        await db.SaveChangesAsync();
+        TempData["Ok"] = $"Se agregó {cantidad} × {plato.Nombre}. El total de la orden ya fue actualizado.";
+        return RedirectToAction(nameof(Details), new { id });
     }
 
     [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "Administrador,Mesero")]

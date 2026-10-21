@@ -22,14 +22,16 @@
       ViewContext.RouteData.Values["action"]?.ToString() == "Error";
 }
 <nav class="navbar navbar-expand navbar-dark site-navbar" aria-label="Navegación principal"><div class="container">
-  <a class="navbar-brand" asp-controller="Platillos" asp-action="Index"><span class="brand-mark">R</span> Restaurante</a>
+  <a class="navbar-brand" asp-controller="@(cocina ? "Cocina" : "Platillos")" asp-action="Index"><span class="brand-mark">R</span> Restaurante</a>
   @if (esPaginaError) {
     <span class="error-nav-status">Aviso del sistema</span>
   } else {
   <div class="navbar-nav me-auto">
-    <a class="nav-link @(controladorActual == "Platillos" ? "active" : null)"
-       aria-current="@(controladorActual == "Platillos" ? "page" : null)"
-       asp-controller="Platillos" asp-action="Index">Menú</a>
+    @if (!cocina) {
+      <a class="nav-link @(controladorActual == "Platillos" ? "active" : null)"
+         aria-current="@(controladorActual == "Platillos" ? "page" : null)"
+         asp-controller="Platillos" asp-action="Index">Menú</a>
+    }
     @if (!autenticado) {
       <a class="nav-link @(controladorActual == "Ordenes" ? "active" : null)"
          aria-current="@(controladorActual == "Ordenes" ? "page" : null)"
