@@ -1,7 +1,7 @@
 @* Model contiene la mesa, los detalles y los platillos. Las comprobaciones de rol/estado ocultan
    acciones no disponibles en la interfaz; el controlador repite las mismas reglas en el servidor. *@
 @model Orden
-@{ ViewData["Title"] = "Orden " + Model.IdOrden; var facturaExistenteId = ViewBag.FacturaExistenteId as int?; var cerrada = Model.Estado == "Facturada" || facturaExistenteId.HasValue; var total = Model.Detalles.Sum(d => d.Subtotal);
+@{ ViewData["Title"] = "Orden " + Model.IdOrden; var facturaExistenteId = ViewBag.FacturaExistenteId as int?; var cerrada = Model.Estado == "Facturada" || facturaExistenteId.HasValue; var subtotal = Model.Detalles.Sum(d => d.Subtotal); var ivaEstimado = Math.Round(subtotal * 0.13m, 2); var totalEstimado = subtotal + ivaEstimado;
    var puedeEditar = !cerrada && (User.IsInRole("Administrador") || User.IsInRole("Mesero"));
    var puedeAgregar = !cerrada && (puedeEditar || User.IsInRole("Cajero")); }
 <h2>Orden #@Model.IdOrden · Mesa @Model.Mesa?.NumeroMesa <span class="badge bg-secondary">@Model.Estado</span></h2>
@@ -12,18 +12,22 @@
 }
 <div class="table-responsive">
 <table class="table"><thead><tr><th>Platillo</th><th>Cant.</th><th>Precio</th><th>Subtotal</th><th></th></tr></thead><tbody>
-@* total es la suma de importes guardados en cada detalle, no del precio actual del menú. *@
+@* Los importes salen de las líneas guardadas; agregar un producto actualiza esta suma antes de facturar. *@
 @foreach (var d in Model.Detalles) {
   <tr><td>@d.Platillo?.Nombre</td><td>@d.Cantidad</td><td>$@d.PrecioUnitario.ToString("N2")</td><td>$@d.Subtotal.ToString("N2")</td>
   <td class="text-end">@if (puedeEditar) { <form method="post" asp-action="RemoveItem" asp-route-idDetalle="@d.IdDetalle"><button class="btn btn-sm btn-outline-danger">Quitar</button></form> }</td></tr> }
-</tbody><tfoot><tr><th colspan="3" class="text-end">Subtotal</th><th>$@total.ToString("N2")</th><th></th></tr></tfoot></table>
+</tbody><tfoot>
+  <tr><th colspan="3" class="text-end">Subtotal</th><th>$@subtotal.ToString("N2")</th><th></th></tr>
+  <tr><th colspan="3" class="text-end">IVA estimado (13%)</th><th>$@ivaEstimado.ToString("N2")</th><th></th></tr>
+  <tr><th colspan="3" class="text-end">Total estimado</th><th>$@totalEstimado.ToString("N2")</th><th></th></tr>
+</tfoot></table>
 </div>
 @if (puedeAgregar) {
   @* El subtotal actualizado de la orden se utiliza al emitir la factura; las facturas existentes son inmutables. *@
   <form method="post" asp-action="AddItem" asp-route-id="@Model.IdOrden" class="row g-2 mb-4 order-item-form" style="max-width:560px">
     <div class="col-7"><select name="idPlatillo" class="form-select" asp-items="@(ViewBag.Platillos as SelectList)"></select></div>
     <div class="col-3"><input name="cantidad" type="number" min="1" value="1" class="form-control" /></div>
-    <div class="col-2"><button class="btn btn-primary">Agregar</button></div>
+    <div class="col-2"><button type="submit" class="btn btn-primary">Agregar</button></div>
   </form> }
 @if (!cerrada && Model.Detalles.Any() && (User.IsInRole("Administrador") || User.IsInRole("Cajero"))) {
   @* Solo se ofrece facturación para órdenes abiertas con líneas y para administrador/cajero;

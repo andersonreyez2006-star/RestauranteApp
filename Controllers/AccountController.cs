@@ -30,6 +30,8 @@ public class AccountController(AppDbContext db, IPasswordHasher<Usuario> hasher)
         var claims = new List<Claim> { new(ClaimTypes.NameIdentifier, u.IdUsuario.ToString()), new(ClaimTypes.Name, u.Nombre), new(ClaimTypes.Role, u.Rol) };
         var id = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
         await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(id));
+        if (u.Rol == "Cocina")
+            return RedirectToAction("Index", "Cocina");
         return RedirectToAction("Index", "Platillos");
     }
 

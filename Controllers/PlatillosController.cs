@@ -37,6 +37,9 @@ public class PlatillosController(AppDbContext db) : Controller
     // Los clientes ven solo productos vendibles; el administrador ve también agotados para poder editarlos.
     public async Task<IActionResult> Index()
     {
+        if (User.IsInRole("Cocina"))
+            return RedirectToAction("Index", "Cocina");
+
         IQueryable<Platillo> menu = db.Platillos.Include(p => p.Categoria);
         // El público solo ve artículos vendibles; administración también necesita ver agotados.
         if (!User.IsInRole("Administrador")) menu = menu.Where(p => p.Estado == "Disponible" && p.Existencias > 0 && p.Precio > 0);
