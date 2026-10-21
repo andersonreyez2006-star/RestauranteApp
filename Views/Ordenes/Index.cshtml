@@ -5,9 +5,11 @@
 <div class="d-flex justify-content-between mb-3"><h2>Órdenes</h2>
   @* La interfaz solo ofrece creación al personal autorizado; el controlador además restringe la acción. *@
   @if (User.IsInRole("Administrador") || User.IsInRole("Mesero")) { <a class="btn btn-primary" asp-action="Create">Nueva orden</a> }</div>
+<div class="table-responsive">
 <table class="table table-striped"><thead><tr><th>#</th><th>Mesa</th><th>Mesero</th><th>Fecha</th><th>Estado</th><th>Total</th><th></th></tr></thead><tbody>
 @foreach (var o in Model) {
   <tr><td>@o.IdOrden</td><td>@o.Mesa?.NumeroMesa</td><td>@o.Usuario?.Nombre</td><td>@o.Fecha.ToString("dd/MM/yyyy HH:mm")</td><td>@o.Estado</td>
       <td>$@o.Detalles.Sum(d => d.Subtotal).ToString("N2")</td>
       <td><a class="btn btn-sm btn-outline-primary" asp-action="Details" asp-route-id="@o.IdOrden">Ver</a></td></tr> }
 </tbody></table>
+</div>
