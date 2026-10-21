@@ -17,7 +17,7 @@
 
 4. Abre <http://localhost:8080>.
 
-La primera vez, SQL Server puede tardar en iniciar. La aplicación reintenta errores transitorios de conexión y crea el esquema y los usuarios de demostración cuando la base `Restaurante` está vacía. Las cuentas de demostración solo se crean en desarrollo.
+La primera vez, SQL Server puede tardar en iniciar. La aplicación reintenta errores transitorios de conexión y crea el esquema y los usuarios de demostración cuando la base `Restaurante` está vacía. Compose usa `ASPNETCORE_ENVIRONMENT=Development` para este uso local; por eso no requiere `InitialAdmin__Email` ni `InitialAdmin__Password`. Las cuentas de demostración solo se crean en desarrollo.
 
 Para detener los contenedores, usa `Ctrl+C` y luego:
 
@@ -39,7 +39,7 @@ La imagen sirve HTTP en el puerto `8080`. La aplicación recibe la cadena de con
 
 El `compose.yaml` anterior es para pruebas locales: usa un contenedor SQL Server Developer. Para producción en Azure, publica la imagen de `web` en Azure Container Registry y configura Azure App Service for Containers o Azure Container Apps para usarla. Conecta la aplicación a Azure SQL Database mediante la configuración segura del servicio, preferentemente con identidad administrada. No despliegues el contenedor SQL Server Developer como base de datos de producción ni publiques el puerto `1433` a Internet.
 
-El chat público responde preguntas frecuentes sobre el menú, precios y pedidos usando los datos actuales de platillos disponibles. No llama a Foundry ni a otro proveedor externo y no requiere claves o variables de IA en App Service. Sus respuestas están basadas en reglas explícitas; para horarios, pagos, alérgenos u otros datos no registrados, recomienda consultar al personal.
+El chat público responde preguntas frecuentes sobre el menú, precios y pedidos usando los datos actuales de platillos disponibles. `AsistenteService` usa reglas explícitas y datos de la base; no llama a Azure OpenAI, Foundry ni a otro proveedor externo y no requiere claves o variables de IA en App Service ni en Docker. Para horarios, pagos, alérgenos u otros datos no registrados, recomienda consultar al personal.
 
 Las fotos de los platillos se almacenan en Azure SQL junto con sus registros para que sobrevivan a los reinicios y despliegues del contenedor. Se aceptan JPEG, PNG y WebP de hasta 5 MB. El esquema existente agrega las columnas de imagen de forma aditiva al iniciar la aplicación.
 
