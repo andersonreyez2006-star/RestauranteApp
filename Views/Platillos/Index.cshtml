@@ -12,58 +12,71 @@
 @* La bifurcación es solo de presentación: el filtro real de productos públicos se aplica en el controlador. *@
 @if (esCliente) {
   @if (Model.Any()) {
-    <div class="row g-4 customer-menu-grid">
-      @foreach (var p in Model) {
-        <div class="col-sm-6 col-xl-4">
-          <article class="customer-menu-card h-100">
-            @* Si falta foto se conserva el arte de reemplazo para no dejar un espacio visual vacío. *@
-            @if (p.Imagen is { Length: > 0 }) {
-              <img class="dish-photo" src="@Url.Action("Imagen", "Platillos", new { id = p.IdPlatillo })" alt="@p.Nombre" loading="lazy" />
-            } else {
-              <div class="dish-art" aria-hidden="true"><span>✦</span></div>
-            }
-            <div class="dish-content">
-              <div class="d-flex justify-content-between align-items-start gap-3">
-                <span class="dish-category">@(p.Categoria?.Nombre ?? "Especialidad")</span>
-                <span class="dish-price">$@p.Precio.ToString("N2")</span>
-              </div>
-              <h3 class="dish-name">@p.Nombre</h3>
-              @if (!string.IsNullOrWhiteSpace(p.Descripcion)) { <p class="dish-description">@p.Descripcion</p> }
-              @if (esCliente) {
-                <a class="dish-order-link" asp-controller="Ordenes" asp-action="CreatePublic">Pedir en mesa <span aria-hidden="true">→</span></a>
-              }
+    @foreach (var categoria in Model.GroupBy(p => new { p.IdCategoria, Nombre = p.Categoria?.Nombre ?? "Especialidad" })) {
+      <section class="menu-category-section" aria-labelledby="menu-category-@categoria.Key.IdCategoria">
+        <div class="menu-category-heading"><h3 id="menu-category-@categoria.Key.IdCategoria">@categoria.Key.Nombre</h3><span>@categoria.Count() platillo(s)</span></div>
+        <div class="row g-4 customer-menu-grid">
+          @foreach (var p in categoria) {
+            <div class="col-sm-6 col-xl-4">
+              <article class="customer-menu-card h-100">
+                @* Si falta foto se conserva el arte de reemplazo para no dejar un espacio visual vacío. *@
+                @if (p.Imagen is { Length: > 0 }) {
+                  <img class="dish-photo" src="@Url.Action("Imagen", "Platillos", new { id = p.IdPlatillo })" alt="@p.Nombre" loading="lazy" />
+                } else {
+                  <div class="dish-art" aria-hidden="true"><span>✦</span></div>
+                }
+                <div class="dish-content">
+                  <div class="d-flex justify-content-between align-items-start gap-3">
+                    <span class="dish-category">@categoria.Key.Nombre</span>
+                    <span class="dish-price">$@p.Precio.ToString("N2")</span>
+                  </div>
+                  <h3 class="dish-name">@p.Nombre</h3>
+                  @if (!string.IsNullOrWhiteSpace(p.Descripcion)) { <p class="dish-description">@p.Descripcion</p> }
+                  <a class="dish-order-link" asp-controller="Ordenes" asp-action="CreatePublic">Pedir en mesa <span aria-hidden="true">→</span></a>
+                </div>
+              </article>
             </div>
-          </article>
+          }
         </div>
-      }
-    </div>
+      </section>
+    }
   } else {
     <div class="empty-menu"><span aria-hidden="true">✦</span><h3>Estamos preparando el menú</h3><p>Vuelve pronto para descubrir nuestras especialidades.</p></div>
   }
 } else {
-<div class="table-responsive">
-<table class="table table-striped align-middle">
-  <thead><tr><th>Nombre</th><th>Categoría</th><th>Precio</th><th>Estado</th><th>Existencias</th><th></th></tr></thead>
-  <tbody>
-  @foreach (var p in Model) {
-    <tr><td>
-        <div class="d-flex align-items-center gap-3">
-          @if (p.Imagen is { Length: > 0 }) {
-            <img class="dish-admin-thumb" src="@Url.Action("Imagen", "Platillos", new { id = p.IdPlatillo })" alt="" loading="lazy" />
-          }
-          <div>@p.Nombre<br /><small class="text-muted">@p.Descripcion</small></div>
-        </div>
-      </td>
-        <td>@p.Categoria?.Nombre</td><td>$@p.Precio.ToString("N2")</td><td>@p.Estado</td><td>@p.Existencias</td>
-        <td class="text-end">
-          @if (User.IsInRole("Administrador")) {
-          <a class="btn btn-sm btn-outline-secondary" asp-action="Edit" asp-route-id="@p.IdPlatillo">Editar</a>
-          <form class="d-inline" method="post" asp-action="Delete" asp-route-id="@p.IdPlatillo" onsubmit="return confirm('¿Eliminar este platillo?');">
-            <button class="btn btn-sm btn-outline-danger">Eliminar</button></form>
-          }
-        </td></tr>
+  @if (!Model.Any()) {
+    <div class="empty-menu"><h3>No hay platillos registrados</h3></div>
   }
-  </tbody>
-</table>
-</div>
+  @foreach (var categoria in Model.GroupBy(p => new { p.IdCategoria, Nombre = p.Categoria?.Nombre ?? "Sin categoría" })) {
+    <section class="menu-category-section" aria-labelledby="inventory-category-@categoria.Key.IdCategoria">
+      <div class="menu-category-heading"><h3 id="inventory-category-@categoria.Key.IdCategoria">@categoria.Key.Nombre</h3><span>@categoria.Count() platillo(s)</span></div>
+      <div class="table-responsive">
+        <table class="table table-striped align-middle">
+          <thead><tr><th>Nombre</th><th>Precio</th><th>Estado</th><th>Existencias</th><th></th></tr></thead>
+          <tbody>
+          @foreach (var p in categoria) {
+            <tr><td>
+                <div class="d-flex align-items-center gap-3">
+                  @if (p.Imagen is { Length: > 0 }) {
+                    <img class="dish-admin-thumb" src="@Url.Action("Imagen", "Platillos", new { id = p.IdPlatillo })" alt="" loading="lazy" />
+                  }
+                  <div>@p.Nombre<br /><small class="text-muted">@p.Descripcion</small></div>
+                </div>
+              </td>
+              <td>$@p.Precio.ToString("N2")</td><td>@p.Estado</td><td>@p.Existencias</td>
+              <td class="text-end">
+                @if (User.IsInRole("Administrador")) {
+                  <a class="btn btn-sm btn-outline-secondary" asp-action="Edit" asp-route-id="@p.IdPlatillo">Editar</a>
+                  <form class="d-inline" method="post" asp-action="Delete" asp-route-id="@p.IdPlatillo" onsubmit="return confirm('¿Eliminar este platillo?');">
+                    <button class="btn btn-sm btn-outline-danger">Eliminar</button>
+                  </form>
+                }
+              </td>
+            </tr>
+          }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  }
 }

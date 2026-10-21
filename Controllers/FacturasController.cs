@@ -46,10 +46,16 @@ public class FacturasController(AppDbContext db) : Controller
 
         var orden = await db.Ordenes.Include(x => x.Detalles).Include(x => x.Mesa).FirstOrDefaultAsync(x => x.IdOrden == idOrden);
         if (orden == null) return NotFound();
-        if (orden.Estado == "Facturada" || !orden.Detalles.Any())
+        if (orden.Estado == "Facturada" || !orden.Detalles.Any() ||
+            orden.Detalles.Any(d => d.Cantidad <= 0 || d.PrecioUnitario <= 0 || d.Subtotal <= 0))
         { TempData["Error"] = "La orden no se puede facturar."; return RedirectToAction("Details", "Ordenes", new { id = idOrden }); }
         // Se calcula el IVA sobre la suma de los subtotales y se redondea a centavos.
         var sub = orden.Detalles.Sum(d => d.Subtotal); var iva = Math.Round(sub * TasaIva, 2);
+        if (sub <= 0)
+        {
+            TempData["Error"] = "No se puede emitir una factura con total de $0.00.";
+            return RedirectToAction("Details", "Ordenes", new { id = idOrden });
+        }
         var f = new Factura { IdOrden = idOrden, Subtotal = sub, IVA = iva, Total = sub + iva };
         f.Pagos.Add(new Pago { MetodoPago = metodoValidado, Monto = f.Total });
         // La mesa solo se libera cuando ya no tiene otras órdenes pendientes de facturación.

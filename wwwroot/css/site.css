@@ -356,6 +356,31 @@ body {
   margin-top: .5rem;
 }
 
+.menu-category-section + .menu-category-section {
+  margin-top: 2.25rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--line);
+}
+
+.menu-category-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: .25rem;
+}
+
+.menu-category-heading h3 {
+  margin: 0;
+  font-size: clamp(1.35rem, 2.5vw, 1.8rem);
+}
+
+.menu-category-heading span {
+  color: var(--muted);
+  font-size: .88rem;
+  white-space: nowrap;
+}
+
 .customer-menu-card {
   overflow: hidden;
   border: 1px solid var(--line);

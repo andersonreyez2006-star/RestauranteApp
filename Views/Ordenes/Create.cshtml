@@ -1,10 +1,48 @@
-@* Formulario interno exclusivo de administrador/mesero. ViewBag.Mesas contiene solo mesas libres;
-   la acción POST vuelve a comprobar disponibilidad antes de ocuparla y crear la orden. *@
+@* Formulario interno para administrador/mesero. Se exigen mesa y platillos desde el inicio para no guardar pedidos en $0. *@
+@using RestauranteApp.Models
 @{ ViewData["Title"] = "Nueva orden"; }
 <h2>Nueva orden</h2>
-<form method="post" asp-action="Create" style="max-width:380px">
-  <div class="mb-3"><label class="form-label">Mesa (solo libres)</label>
-    @* El valor enviado es IdMesa; el número visible de mesa es solo la etiqueta del selector. *@
-    <select name="idMesa" class="form-select" asp-items="@(ViewBag.Mesas as SelectList)"></select></div>
-  <button class="btn btn-primary">Crear orden</button> <a class="btn btn-link" asp-action="Index">Cancelar</a>
+@{
+  var mesas = ViewBag.Mesas as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+  var platillos = ViewBag.Platillos as List<Platillo> ?? new();
+}
+@if (mesas is null || !mesas.Any()) {
+  <div class="alert alert-info">No hay mesas libres para crear un pedido.</div>
+} else if (!platillos.Any()) {
+  <div class="alert alert-info">No hay platillos con existencias disponibles.</div>
+} else {
+<form method="post" asp-action="Create" class="customer-order-form">
+  <div class="table-picker mb-4">
+    <label class="form-label" for="idMesa">Mesa</label>
+    <select id="idMesa" name="idMesa" class="form-select" asp-items="mesas" required></select>
+  </div>
+  @foreach (var categoria in platillos.GroupBy(p => new { p.IdCategoria, Nombre = p.Categoria?.Nombre ?? "Especialidad" })) {
+    <section class="menu-category-section" aria-labelledby="staff-order-category-@categoria.Key.IdCategoria">
+      <div class="order-menu-heading"><h3 id="staff-order-category-@categoria.Key.IdCategoria">@categoria.Key.Nombre</h3><span>@categoria.Count() platillo(s)</span></div>
+      <div class="row g-4">
+      @foreach (var p in categoria) {
+        <div class="col-sm-6 col-xl-4">
+          <article class="customer-menu-card order-dish-card h-100">
+            <div class="dish-content">
+              <div class="d-flex justify-content-between align-items-start gap-3">
+                <span class="dish-category">@categoria.Key.Nombre</span>
+                <span class="dish-price">$@p.Precio.ToString("N2")</span>
+              </div>
+              <h4 class="dish-name">@p.Nombre</h4>
+              <p class="dish-stock">@p.Existencias disponibles</p>
+              <label class="form-label" for="q_@p.IdPlatillo">Cantidad</label>
+              <input id="q_@p.IdPlatillo" class="form-control" type="number" name="cantidades[@p.IdPlatillo]" min="0" max="@Math.Min(20, p.Existencias)" value="0" />
+            </div>
+          </article>
+        </div>
+      }
+      </div>
+    </section>
+  }
+  <div class="order-submit-bar">
+    <span>Selecciona al menos un platillo para crear el pedido.</span>
+    <button class="btn btn-primary btn-lg">Crear pedido</button>
+  </div>
+  <a class="btn btn-link mt-3" asp-action="Index">Cancelar</a>
 </form>
+}
