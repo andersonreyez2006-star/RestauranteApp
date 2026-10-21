@@ -3,6 +3,7 @@
 @model IEnumerable<Mesa>
 @{ ViewData["Title"] = "Mesas"; }
 <div class="d-flex justify-content-between mb-3"><h2>Mesas</h2><a class="btn btn-primary" asp-action="Create">Nueva mesa</a></div>
+<div class="table-responsive">
 <table class="table table-striped"><thead><tr><th>Número</th><th>Capacidad</th><th>Estado</th><th></th></tr></thead><tbody>
 @foreach (var m in Model) {
   <tr><td>@m.NumeroMesa</td><td>@m.Capacidad</td><td>@m.Estado</td><td class="text-end">
@@ -11,3 +12,4 @@
     <form class="d-inline" method="post" asp-action="Delete" asp-route-id="@m.IdMesa" onsubmit="return confirm('¿Eliminar esta mesa?');"><button class="btn btn-sm btn-outline-danger">Eliminar</button></form>
   </td></tr> }
 </tbody></table>
+</div>
