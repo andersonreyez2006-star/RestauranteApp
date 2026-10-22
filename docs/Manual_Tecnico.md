@@ -21,6 +21,8 @@ La aplicación sigue una estructura MVC por capas: `Controllers` reciben peticio
 
 El asistente utiliza coincidencia de palabras normalizadas y respuestas deterministas. Sus recomendaciones se seleccionan de los platillos públicos actuales; no se debe describir como modelo de IA generativa. Para presentarlo como cumplimiento de un requisito de IA, el equipo debe validar con el docente si un FAQ/reglas satisface la propuesta aprobada en Investigación Aplicada II.
 
+Las preguntas públicas sobre clima se resuelven con `ClimaService`, que consulta la geocodificación y el pronóstico actual de Open-Meteo. No requiere API key ni configuración en Azure. Solo se envía a ese proveedor el nombre de ciudad escrito en la pregunta; nunca se envían datos del menú, clientes, pedidos o cuentas. Se establece un timeout de 10 segundos y los errores de red, timeout o respuesta JSON se notifican al usuario sin interrumpir otras consultas del FAQ.
+
 ## API web del chatbot
 
 - Método y ruta: `POST /Asistente/Preguntar`
@@ -30,7 +32,9 @@ El asistente utiliza coincidencia de palabras normalizadas y respuestas determin
 - Ruta administrativa: `POST /Asistente/PreguntarAdministrador` (requiere rol `Administrador`).
 - Controlador: `src/RestauranteApp/Controllers/AsistenteController.cs`.
 
-Este endpoint es un servicio web propio; no consume servicios de IA ni API externas.
+Este endpoint es un servicio web propio y no usa IA generativa; cuando la pregunta es sobre clima, el servidor consulta Open-Meteo.
+
+La integración meteorológica consume los endpoints públicos de geocodificación y pronóstico de Open-Meteo desde el servidor; no expone una API key al navegador.
 
 ## Configuración y publicación
 

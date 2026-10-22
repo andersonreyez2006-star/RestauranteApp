@@ -22,11 +22,14 @@ Los visitantes pueden abrir **¿Necesitas ayuda?** para preguntar por:
 - Descripción de un platillo, por ejemplo: “¿Qué trae Pupusas revueltas?”
 - Categorías, por ejemplo: “¿Qué postres hay?”.
 - Opciones de menor precio o sugerencias del menú.
+- Clima actual de una ciudad, por ejemplo: “¿Cómo está el clima en San Salvador?”.
 - Cómo seleccionar mesa y enviar un pedido.
 
 Al iniciar sesión con el rol **Administrador**, aparece **Asistente administrativo**. Este chat permite consultar las ventas facturadas del día, las órdenes abiertas, el inventario y las existencias bajas, además del precio, estado y descripción de un platillo. Es de solo lectura: no crea ni modifica registros. La información administrativa no está disponible para visitantes ni para otros roles.
 
 El FAQ utiliza respuestas programadas, no IA generativa. El chat público solo consulta la información visible del menú y no muestra cantidades exactas de existencias ni datos de clientes, pedidos, pagos, facturas o usuarios. El asistente administrativo sí presenta existencias y resúmenes operativos, pero no consulta ni muestra información personal de clientes o credenciales. Para alérgenos, ingredientes no detallados, horarios, dirección o medios de pago no confirmados, consulta al personal.
+
+La consulta de clima usa la API externa gratuita de Open-Meteo, sin API key. Escribe el nombre de una ciudad en la pregunta; si el proveedor no está disponible o no encuentra el lugar, el asistente informa el problema y el FAQ del menú sigue funcionando.
 
 ## Recomendaciones de uso
 

@@ -38,7 +38,7 @@ public class AsistenteServiceTests
             });
         await db.SaveChangesAsync();
 
-        var service = new AsistenteService(db);
+        var service = new AsistenteService(db, new ClimaFalso());
         var response = await service.ResponderAsync("¿Qué postres hay y cuántos tienen?", CancellationToken.None);
 
         Assert.Contains("Quesadilla salvadoreña", response);
@@ -65,7 +65,7 @@ public class AsistenteServiceTests
         });
         await db.SaveChangesAsync();
 
-        var service = new AsistenteService(db);
+        var service = new AsistenteService(db, new ClimaFalso());
         var response = await service.ResponderAsync("¿Qué trae Pupusas revueltas?", CancellationToken.None);
 
         Assert.Contains("Tres pupusas con curtido y salsa", response);
@@ -74,6 +74,32 @@ public class AsistenteServiceTests
         Assert.Contains("disponible", response, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("50 en existencia", response, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("50 unidades", response, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ResponderAsync_UsesExternalWeatherServiceWhenCityIsSpecified()
+    {
+        await using var db = CreateDatabase();
+        var clima = new ClimaFalso();
+        var service = new AsistenteService(db, clima);
+
+        var response = await service.ResponderAsync("¿Cómo está el clima en San Salvador hoy?", CancellationToken.None);
+
+        Assert.Equal("San Salvador", clima.UltimaCiudad);
+        Assert.Equal(clima.Respuesta, response);
+    }
+
+    [Fact]
+    public async Task ResponderAsync_AsksForCityBeforeCallingWeatherService()
+    {
+        await using var db = CreateDatabase();
+        var clima = new ClimaFalso();
+        var service = new AsistenteService(db, clima);
+
+        var response = await service.ResponderAsync("¿Cuál es la temperatura?", CancellationToken.None);
+
+        Assert.Contains("¿De qué ciudad", response);
+        Assert.Null(clima.UltimaCiudad);
     }
 
     [Fact]
@@ -100,7 +126,7 @@ public class AsistenteServiceTests
         });
         await db.SaveChangesAsync();
 
-        var service = new AsistenteService(db);
+        var service = new AsistenteService(db, new ClimaFalso());
         var ventas = await service.ResponderAdministradorAsync("¿Cuáles son las ventas de hoy?", CancellationToken.None);
         var ordenes = await service.ResponderAdministradorAsync("¿Qué órdenes están pendientes?", CancellationToken.None);
 
@@ -139,7 +165,7 @@ public class AsistenteServiceTests
             });
         await db.SaveChangesAsync();
 
-        var service = new AsistenteService(db);
+        var service = new AsistenteService(db, new ClimaFalso());
         var detalle = await service.ResponderAdministradorAsync("Estado de Pupusas revueltas", CancellationToken.None);
         var alertas = await service.ResponderAdministradorAsync("¿Qué platillos tienen inventario bajo?", CancellationToken.None);
 
@@ -169,5 +195,17 @@ public class AsistenteServiceTests
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
         return new AppDbContext(options);
+    }
+
+    private sealed class ClimaFalso : IClimaService
+    {
+        public string? UltimaCiudad { get; private set; }
+        public string Respuesta => "Clima actual en San Salvador: despejado, 28.0 °C. Fuente: Open-Meteo.";
+
+        public Task<string> ConsultarAsync(string ciudad, CancellationToken cancellationToken)
+        {
+            UltimaCiudad = ciudad;
+            return Task.FromResult(Respuesta);
+        }
     }
 }

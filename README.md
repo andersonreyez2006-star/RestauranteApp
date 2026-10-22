@@ -35,7 +35,7 @@ dotnet run --project src/RestauranteApp/RestauranteApp.csproj
 
 ## Asistente FAQ y privacidad
 
-El asistente **no usa una IA externa**. Los visitantes consultan únicamente información pública de platillos disponibles; el administrador autenticado tiene un chat separado de solo lectura para consultar ventas del día, órdenes abiertas e inventario. El endpoint administrativo está protegido por rol y no muestra datos personales de clientes ni credenciales.
+El asistente **no usa una IA generativa**. Los visitantes consultan información pública del menú y pueden pedir el clima actual de una ciudad mediante Open-Meteo, una API externa gratuita sin API key. El administrador autenticado tiene un chat separado de solo lectura para ventas del día, órdenes abiertas e inventario; su endpoint está protegido por rol y no muestra datos personales ni credenciales.
 
 ## Documentación
 

@@ -1,11 +1,12 @@
 using System.Globalization;
 using System.Text;
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using RestauranteApp.Data;
 
 namespace RestauranteApp.Services;
 
-public class AsistenteService(AppDbContext db)
+public class AsistenteService(AppDbContext db, IClimaService climaService)
 {
     private sealed record PlatilloPublico(string Nombre, string Categoria, string? Descripcion, decimal Precio);
     private sealed record PlatilloAdministrador(
@@ -110,6 +111,15 @@ public class AsistenteService(AppDbContext db)
 
     public async Task<string> ResponderAsync(string pregunta, CancellationToken cancellationToken)
     {
+        var preguntaNormalizada = Normalizar(pregunta.Trim());
+        if (ContienePalabra(preguntaNormalizada, "clima", "temperatura", "lluvia", "llueve", "lloviendo", "pronostico"))
+        {
+            var ciudad = ExtraerCiudadClima(pregunta);
+            return ciudad is null
+                ? "¿De qué ciudad quieres consultar el clima? Por ejemplo: “clima en San Salvador”."
+                : await climaService.ConsultarAsync(ciudad, cancellationToken);
+        }
+
         var platillos = await db.Platillos
             .AsNoTracking()
             .Include(p => p.Categoria)
@@ -124,6 +134,17 @@ public class AsistenteService(AppDbContext db)
             .ToListAsync(cancellationToken);
 
         return RespuestaFrecuente(pregunta, platillos);
+    }
+
+    private static string? ExtraerCiudadClima(string pregunta)
+    {
+        var coincidencia = Regex.Match(
+            pregunta,
+            @"\ben\s+(.+?)(?:\s+(?:hoy|ahora|por favor))?[?.!]*$",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        return coincidencia.Success
+            ? coincidencia.Groups[1].Value.Trim().Trim('¿', '?', '¡', '!', '.', ',', ';', ':')
+            : null;
     }
 
     private static string RespuestaFrecuente(string pregunta, IReadOnlyCollection<PlatilloPublico> platillos)
