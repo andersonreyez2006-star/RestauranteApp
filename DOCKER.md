@@ -8,7 +8,7 @@
 ## Iniciar en desarrollo local
 
 1. En la carpeta que contiene `Dockerfile`, copia `.env.example` como `.env`.
-2. Cambia `SA_PASSWORD` en `.env` por una contraseña segura. Para habilitar Gemini, define `GOOGLE_AI_API_KEY` en `.env`. Si no configuras la clave o Gemini falla, el asistente usa el FAQ local como respaldo. No publiques el archivo `.env`.
+2. Cambia `SA_PASSWORD` en `.env` por una contraseña segura. No compartas ni publiques ese archivo.
 3. Abre una terminal en la carpeta del proyecto y ejecuta:
 
    ```powershell
@@ -39,20 +39,19 @@ La imagen sirve HTTP en el puerto `8080`. La aplicación recibe la cadena de con
 
 El `compose.yaml` anterior es para pruebas locales: usa un contenedor SQL Server Developer. Para producción en Azure, publica la imagen de `web` en Azure Container Registry y configura Azure App Service for Containers o Azure Container Apps para usarla. Conecta la aplicación a Azure SQL Database mediante la configuración segura del servicio, preferentemente con identidad administrada. No despliegues el contenedor SQL Server Developer como base de datos de producción ni publiques el puerto `1433` a Internet.
 
-El chatbot usa Gemini de Google Cloud Agent Platform Express Mode cuando `GOOGLE_AI_API_KEY` está configurada y envía la pregunta junto con el catálogo actual de platillos disponibles. Si la clave falta, la API falla o se agota el tiempo de espera, vuelve al FAQ local para que el chat siga respondiendo. En Azure, configura `GOOGLE_AI_API_KEY` como variable secreta del App Service; la aplicación no usa servicios de IA de Azure. Para horarios, pagos, alérgenos u otros datos no registrados, indica consultar al personal.
+El chat público responde preguntas frecuentes sobre el menú, precios y pedidos usando los datos actuales de platillos disponibles. `AsistenteService` usa reglas explícitas y datos de la base; no llama a Azure OpenAI, Foundry ni a otro proveedor externo y no requiere claves o variables de IA en App Service ni en Docker. Para horarios, pagos, alérgenos u otros datos no registrados, recomienda consultar al personal.
 
 Las fotos de los platillos se almacenan en Azure SQL junto con sus registros para que sobrevivan a los reinicios y despliegues del contenedor. Se aceptan JPEG, PNG y WebP de hasta 5 MB. El esquema existente agrega las columnas de imagen de forma aditiva al iniciar la aplicación.
 
 ### Despliegue automatizado en App Service
 
-El workflow `.github/workflows/master_dsp.yml` construye la imagen desde este `Dockerfile`, la publica en `acrrestaurante2026.azurecr.io` y la despliega en el App Service `DSP` al actualizar `master`, o manualmente desde GitHub Actions.
+El workflow `.github/workflows/azure-deploy.yml` construye la imagen desde este `Dockerfile`, la publica en `acrrestaurante2026.azurecr.io` y configura el App Service `DSPproy` para usarla en el puerto `8080`. Se ejecuta al actualizar `master` o `main`, o manualmente desde GitHub Actions.
 
 Antes de ejecutarlo:
 
-1. Crea los secretos de acceso a Azure que utiliza `.github/workflows/master_dsp.yml` en **Settings → Secrets and variables → Actions** del repositorio.
-2. Configura el acceso del App Service `DSP` al ACR `acrrestaurante2026`.
+1. Configura autenticación federada de GitHub Actions (OIDC) para la aplicación de Microsoft Entra ID y crea estos secretos en **Settings → Secrets and variables → Actions** del repositorio: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID` y `AZURE_SUBSCRIPTION_ID`. La identidad necesita permisos para publicar imágenes en el ACR y actualizar el App Service.
+2. En el App Service `DSPproy`, habilita la identidad administrada asignada por el sistema. En el ACR `acrrestaurante2026`, asigna a esa identidad el rol **AcrPull**.
 3. En **Configuración → Variables de entorno** del App Service, agrega `ConnectionStrings__Default` con la cadena de Azure SQL Database. Guárdala como configuración marcada como secreta; no la escribas en el repositorio ni en GitHub Actions.
-   Para habilitar Gemini, agrega también `GOOGLE_AI_API_KEY` como variable secreta. Esta clave es para Google y no requiere un servicio de IA de Azure.
    Si la base está vacía, configura también `InitialAdmin__Email` y `InitialAdmin__Password` para crear la cuenta inicial de administrador. La contraseña se almacena hasheada. Elimina esas variables después de crear la cuenta; cambia o elimina cualquier cuenta de demostración que ya exista en una base de producción.
 4. En el servidor SQL, permite la conexión de red del App Service mediante sus direcciones IP de salida en **Redes → Firewalls y redes virtuales**. No habilites el acceso de todos los servicios de Azure si no es necesario.
 5. Integra estos cambios en `master` o `main` y revisa la ejecución del workflow en la pestaña **Actions** de GitHub.
