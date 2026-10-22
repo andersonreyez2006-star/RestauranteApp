@@ -35,7 +35,7 @@ dotnet run --project src/RestauranteApp/RestauranteApp.csproj
 
 ## Asistente FAQ y privacidad
 
-El asistente **no usa una IA externa**. Sus respuestas se construyen mediante reglas y consultan únicamente platillos públicos que estén disponibles, su categoría, descripción y precio. No consulta usuarios, pedidos, facturas, pagos ni reportes, y no muestra cantidades exactas de inventario. Para ingredientes/alérgenos, pagos, horarios o ubicación no confirmados, recomienda preguntar al personal.
+El asistente **no usa una IA externa**. Los visitantes consultan únicamente información pública de platillos disponibles; el administrador autenticado tiene un chat separado de solo lectura para consultar ventas del día, órdenes abiertas e inventario. El endpoint administrativo está protegido por rol y no muestra datos personales de clientes ni credenciales.
 
 ## Documentación
 

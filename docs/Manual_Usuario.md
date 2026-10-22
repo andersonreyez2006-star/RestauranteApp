@@ -16,7 +16,7 @@ Las credenciales de cada usuario deben ser entregadas por el administrador. No c
 
 ## Asistente FAQ
 
-Abre **¿Necesitas ayuda?** para preguntar por:
+Los visitantes pueden abrir **¿Necesitas ayuda?** para preguntar por:
 
 - Platillos del menú, precios y disponibilidad actual.
 - Descripción de un platillo, por ejemplo: “¿Qué trae Pupusas revueltas?”
@@ -24,7 +24,9 @@ Abre **¿Necesitas ayuda?** para preguntar por:
 - Opciones de menor precio o sugerencias del menú.
 - Cómo seleccionar mesa y enviar un pedido.
 
-El FAQ es un sistema de respuestas programadas, no una IA generativa. Solo usa la información pública del menú; no tiene acceso a datos de clientes, pedidos, pagos, facturas, usuarios ni cantidades exactas de existencias. Para alérgenos, ingredientes no detallados, horarios, dirección o medios de pago, confirma con el personal.
+Al iniciar sesión con el rol **Administrador**, aparece **Asistente administrativo**. Este chat permite consultar las ventas facturadas del día, las órdenes abiertas, el inventario y las existencias bajas, además del precio, estado y descripción de un platillo. Es de solo lectura: no crea ni modifica registros. La información administrativa no está disponible para visitantes ni para otros roles.
+
+El FAQ utiliza respuestas programadas, no IA generativa. El chat público solo consulta la información visible del menú y no muestra cantidades exactas de existencias ni datos de clientes, pedidos, pagos, facturas o usuarios. El asistente administrativo sí presenta existencias y resúmenes operativos, pero no consulta ni muestra información personal de clientes o credenciales. Para alérgenos, ingredientes no detallados, horarios, dirección o medios de pago no confirmados, consulta al personal.
 
 ## Recomendaciones de uso
 

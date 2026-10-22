@@ -8,6 +8,105 @@ namespace RestauranteApp.Services;
 public class AsistenteService(AppDbContext db)
 {
     private sealed record PlatilloPublico(string Nombre, string Categoria, string? Descripcion, decimal Precio);
+    private sealed record PlatilloAdministrador(
+        string Nombre,
+        string Categoria,
+        string? Descripcion,
+        decimal Precio,
+        string Estado,
+        int Existencias);
+
+    public async Task<string> ResponderAdministradorAsync(string pregunta, CancellationToken cancellationToken)
+    {
+        var textoNormalizado = Normalizar(pregunta.Trim());
+
+        if (Contiene(textoNormalizado, "hola", "buenos dias", "buenas tardes", "buenas noches"))
+            return "Hola. Puedo consultar ventas de hoy, órdenes abiertas, inventario, existencias y datos de platillos. Las consultas son de solo lectura.";
+
+        if (ContienePalabra(textoNormalizado, "venta", "ventas", "factura", "facturado", "ingreso", "ingresos"))
+        {
+            var desde = DateTime.Today;
+            var hasta = desde.AddDays(1);
+            var facturas = db.Facturas.AsNoTracking().Where(f => f.Fecha >= desde && f.Fecha < hasta);
+            var cantidad = await facturas.CountAsync(cancellationToken);
+            var total = await facturas.SumAsync(f => (decimal?)f.Total, cancellationToken) ?? 0;
+
+            if (cantidad == 0)
+                return $"Hoy ({desde:dd/MM/yyyy}) todavía no hay ventas facturadas.";
+
+            return $"Hoy ({desde:dd/MM/yyyy}) se emitieron {cantidad} factura(s), por un total de ${total:N2}.";
+        }
+
+        if (ContienePalabra(textoNormalizado, "orden", "ordenes", "pedido", "pedidos", "pendiente", "pendientes", "preparacion", "cocina"))
+        {
+            var ordenes = await db.Ordenes.AsNoTracking()
+                .Include(o => o.Mesa)
+                .Include(o => o.Detalles)
+                .Where(o => o.Estado != "Facturada")
+                .OrderBy(o => o.Fecha)
+                .Take(5)
+                .ToListAsync(cancellationToken);
+            var cantidadAbiertas = await db.Ordenes.AsNoTracking()
+                .CountAsync(o => o.Estado != "Facturada", cancellationToken);
+
+            if (cantidadAbiertas == 0)
+                return "No hay órdenes abiertas en este momento.";
+
+            var resumen = string.Join("; ", ordenes.Select(o =>
+                $"orden #{o.IdOrden}, mesa {o.Mesa?.NumeroMesa.ToString() ?? "sin mesa"}, {o.Estado}, {o.Detalles.Sum(d => d.Cantidad)} artículo(s)"));
+            var restantes = cantidadAbiertas > ordenes.Count
+                ? $" Muestro las primeras {ordenes.Count} de {cantidadAbiertas} órdenes abiertas."
+                : "";
+            return $"Órdenes abiertas: {resumen}.{restantes}";
+        }
+
+        var platillos = await db.Platillos.AsNoTracking()
+            .OrderBy(p => p.Existencias)
+            .ThenBy(p => p.Nombre)
+            .Select(p => new PlatilloAdministrador(
+                p.Nombre,
+                p.Categoria == null ? "Especialidad" : p.Categoria.Nombre,
+                p.Descripcion,
+                p.Precio,
+                p.Estado,
+                p.Existencias))
+            .ToListAsync(cancellationToken);
+        var platilloConsultado = platillos.FirstOrDefault(p =>
+            textoNormalizado.Contains(Normalizar(p.Nombre), StringComparison.Ordinal));
+
+        if (platilloConsultado is not null)
+        {
+            var descripcion = string.IsNullOrWhiteSpace(platilloConsultado.Descripcion)
+                ? "Sin descripción registrada"
+                : platilloConsultado.Descripcion;
+            return $"{platilloConsultado.Nombre} ({platilloConsultado.Categoria}): {descripcion}. " +
+                   $"Precio ${platilloConsultado.Precio:N2}; estado {platilloConsultado.Estado}; existencias {platilloConsultado.Existencias}.";
+        }
+
+        if (Contiene(textoNormalizado, "bajo", "bajos", "poco", "pocos", "agotado", "agotados", "alerta", "reponer", "reabastecer"))
+        {
+            var bajoStock = platillos.Where(p => p.Existencias <= 5).ToList();
+            if (bajoStock.Count == 0)
+                return "No hay platillos con cinco existencias o menos.";
+
+            return "Platillos con cinco existencias o menos: " +
+                   string.Join(", ", bajoStock.Select(p => $"{p.Nombre} ({p.Existencias})")) + ".";
+        }
+
+        if (Contiene(textoNormalizado, "inventario", "existencia", "existencias", "stock", "platillo", "platillos", "menu"))
+        {
+            var inventario = await db.Platillos.AsNoTracking()
+                .OrderBy(p => p.Nombre)
+                .Select(p => new { p.Nombre, p.Estado, p.Existencias, p.Precio })
+                .ToListAsync(cancellationToken);
+            return inventario.Count == 0
+                ? "No hay platillos registrados en el inventario."
+                : "Inventario actual: " + string.Join(", ", inventario.Select(p =>
+                    $"{p.Nombre}: {p.Existencias} existencia(s), {p.Estado}, ${p.Precio:N2}")) + ".";
+        }
+
+        return "Puedo consultar ventas de hoy, órdenes abiertas, inventario, existencias bajas o el estado de un platillo. No puedo modificar registros.";
+    }
 
     public async Task<string> ResponderAsync(string pregunta, CancellationToken cancellationToken)
     {
@@ -169,4 +268,23 @@ public class AsistenteService(AppDbContext db)
 
     private static bool Contiene(string texto, params string[] palabras) =>
         palabras.Any(texto.Contains);
+
+    private static bool ContienePalabra(string texto, params string[] palabras)
+    {
+        foreach (var palabra in palabras)
+        {
+            var inicio = 0;
+            while ((inicio = texto.IndexOf(palabra, inicio, StringComparison.Ordinal)) >= 0)
+            {
+                var fin = inicio + palabra.Length;
+                var inicioDePalabra = inicio == 0 || !char.IsLetterOrDigit(texto[inicio - 1]);
+                var finDePalabra = fin == texto.Length || !char.IsLetterOrDigit(texto[fin]);
+                if (inicioDePalabra && finDePalabra)
+                    return true;
+                inicio = fin;
+            }
+        }
+
+        return false;
+    }
 }

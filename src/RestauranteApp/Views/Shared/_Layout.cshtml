@@ -85,25 +85,27 @@
   @if (TempData["Error"] != null) { <div class="alert alert-danger">@TempData["Error"]</div> }
   @RenderBody()
 </main>
-@if (!autenticado) {
-  @* El chat solo aparece a visitantes; las respuestas se solicitan al endpoint del asistente. *@
+@if (!autenticado || administrador) {
+  @* Visitantes usan el FAQ público; el administrador recibe un chat separado protegido por rol. *@
   @* aria-hidden/aria-expanded se sincronizan en JavaScript para lectores de pantalla y teclado. *@
-  <section id="chatbot-panel" class="chatbot-panel" aria-label="Asistente del restaurante" aria-hidden="true">
+  <section id="chatbot-panel" class="chatbot-panel" aria-label="@(administrador ? "Asistente administrativo" : "Asistente del restaurante")" aria-hidden="true">
     <header class="chatbot-header">
-      <div><span class="chatbot-status"></span><strong>Ayuda del restaurante</strong><small>Menú y pedidos</small></div>
+      <div><span class="chatbot-status"></span><strong>@(administrador ? "Asistente administrativo" : "Ayuda del restaurante")</strong><small>@(administrador ? "Ventas, órdenes e inventario" : "Menú y pedidos")</small></div>
       <button id="chatbot-close" class="chatbot-close" type="button" aria-label="Cerrar chat">×</button>
     </header>
     <div id="chatbot-messages" class="chatbot-messages" aria-live="polite">
-      <div class="chat-message chat-message-assistant">¡Hola! Puedo mostrarte platillos disponibles, precios, categorías y descripciones, recomendarte opciones o explicarte cómo pedir en mesa. ¿Qué se te antoja?</div>
+      <div class="chat-message chat-message-assistant">@(administrador
+          ? "Hola. Puedo consultar ventas de hoy, órdenes abiertas, inventario, existencias bajas o el estado de un platillo. Las consultas son de solo lectura."
+          : "¡Hola! Puedo mostrarte platillos disponibles, precios, categorías y descripciones, recomendarte opciones o explicarte cómo pedir en mesa. ¿Qué se te antoja?")</div>
     </div>
     <form id="chatbot-form" class="chatbot-form">
-      <input id="chatbot-input" class="form-control" maxlength="500" placeholder="Escribe tu pregunta…" aria-label="Tu pregunta" required />
+      <input id="chatbot-input" class="form-control" maxlength="500" placeholder="@(administrador ? "Consulta ventas, pedidos o inventario…" : "Escribe tu pregunta…")" aria-label="Tu pregunta" required />
       <button class="btn btn-primary" type="submit" aria-label="Enviar pregunta">Enviar</button>
     </form>
-    <p class="chatbot-note">No compartas datos personales o de pago.</p>
+    <p class="chatbot-note">@(administrador ? "Solo lectura: el chat no crea ni modifica registros." : "No compartas datos personales o de pago.")</p>
   </section>
   <button id="chatbot-toggle" class="chatbot-toggle" type="button" aria-expanded="false">
-    <span aria-hidden="true">✦</span> ¿Necesitas ayuda?
+    <span aria-hidden="true">✦</span> @(administrador ? "Asistente administrativo" : "¿Necesitas ayuda?")
   </button>
   <script>
   (() => {
@@ -115,6 +117,7 @@
     const form = document.getElementById('chatbot-form');
     const input = document.getElementById('chatbot-input');
     const button = form.querySelector('button');
+    const endpoint = '@(administrador ? "/Asistente/PreguntarAdministrador" : "/Asistente/Preguntar")';
 
     // Mantiene el panel visual y sus atributos ARIA sincronizados; enfoca el campo al abrir.
     const setOpen = (open) => {
@@ -149,9 +152,8 @@
       const pending = addMessage('Estoy buscando una respuesta…', 'assistant');
 
       try {
-        // La pregunta viaja en JSON al endpoint público; validación, limitación de solicitudes y respuesta
-        // se resuelven en el servidor, nunca se confía en las restricciones visuales del formulario.
-        const response = await fetch('/Asistente/Preguntar', {
+        // El servidor valida el rol, el contenido y el límite de solicitudes; la interfaz no es un control de acceso.
+        const response = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ texto: question })
