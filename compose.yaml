@@ -9,6 +9,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_HTTP_PORTS: 8080
+      GOOGLE_AI_API_KEY: ${GOOGLE_AI_API_KEY:-}
       ConnectionStrings__Default: "Server=db,1433;Database=Restaurante;User Id=sa;Password=${SA_PASSWORD:?Define SA_PASSWORD en .env};Encrypt=True;TrustServerCertificate=True"
     depends_on:
       - db
