@@ -15,7 +15,9 @@ La aplicación sigue una estructura MVC por capas: `Controllers` reciben peticio
 
 ## Seguridad y privacidad del asistente
 
-`POST /Asistente/Preguntar` es anónimo y limitado a 10 solicitudes por minuto por IP; rechaza texto vacío y preguntas de más de 500 caracteres. `AsistenteService` consulta solo platillos con estado disponible, existencias mayores a cero y precio positivo, y proyecta únicamente nombre, categoría, descripción y precio. La consulta no accede a entidades de usuarios, órdenes, facturas, pagos ni reportes. No revela los conteos de inventario.
+`POST /Asistente/Preguntar` es anónimo y limitado a 10 solicitudes por minuto por IP; rechaza texto vacío y preguntas de más de 500 caracteres. Consulta solo platillos con estado disponible, existencias mayores a cero y precio positivo, y proyecta únicamente nombre, categoría, descripción y precio. No accede a usuarios, órdenes, facturas, pagos ni reportes, ni revela conteos de inventario.
+
+`POST /Asistente/PreguntarAdministrador` exige el rol `Administrador` y aplica el mismo límite de longitud y frecuencia. El chat administrativo responde en modo de solo lectura con ventas facturadas del día, órdenes abiertas, existencias, alertas de cinco unidades o menos y datos del platillo consultado. Proyecta solo los campos operativos necesarios; no lee credenciales ni devuelve información personal de clientes. La autorización está en el endpoint del servidor y no depende de que el botón esté oculto en la interfaz.
 
 El asistente utiliza coincidencia de palabras normalizadas y respuestas deterministas. Sus recomendaciones se seleccionan de los platillos públicos actuales; no se debe describir como modelo de IA generativa. Para presentarlo como cumplimiento de un requisito de IA, el equipo debe validar con el docente si un FAQ/reglas satisface la propuesta aprobada en Investigación Aplicada II.
 
@@ -25,6 +27,7 @@ El asistente utiliza coincidencia de palabras normalizadas y respuestas determin
 - Entrada JSON: `{"texto":"¿Qué postres tienen?"}`
 - Respuesta JSON: `{"respuesta":"..."}`.
 - Límite de texto: 500 caracteres.
+- Ruta administrativa: `POST /Asistente/PreguntarAdministrador` (requiere rol `Administrador`).
 - Controlador: `src/RestauranteApp/Controllers/AsistenteController.cs`.
 
 Este endpoint es un servicio web propio; no consume servicios de IA ni API externas.
@@ -35,4 +38,4 @@ La cadena `ConnectionStrings__Default` se inyecta desde el entorno. No se deben 
 
 ## Extensión
 
-Para añadir respuestas al FAQ, amplía las reglas de `src/RestauranteApp/Services/AsistenteService.cs`, usa únicamente columnas públicas del menú y agrega casos al plan de pruebas. No uses datos personales o transaccionales en un endpoint anónimo.
+Para añadir respuestas, amplía `src/RestauranteApp/Services/AsistenteService.cs` y agrega casos al plan de pruebas. Mantén los datos públicos en `Preguntar`; cualquier dato operacional debe quedarse en la ruta administrativa protegida y no debe incluir información personal.
