@@ -7,7 +7,8 @@
 .env
 *.user
 *.suo
-Dockerfile*
 docker-compose*
 compose.y*ml
-DOCKER.md
+/docs/
+/database/
+/README.md

@@ -1,21 +1,48 @@
-# Sistema Web de Gestión Gastronómica (DSP – Fase II)
-ASP.NET Core MVC (.NET 8) · Entity Framework Core · SQL Server · Docker · Asistente de IA (Azure OpenAI)
+# RestauranteApp — Proyecto DSP Fase II
+
+Aplicación web de gestión de restaurante construida con ASP.NET Core MVC (.NET 8), Entity Framework Core y SQL Server. Incluye gestión de menú, categorías, mesas, pedidos, cocina, facturación, reportes y un asistente FAQ que responde con información pública del menú.
+
+## Estructura del repositorio
+
+```text
+src/RestauranteApp/   Aplicación ASP.NET Core MVC
+tests/                Pruebas automatizadas de lógica y privacidad del FAQ
+docs/                 Manuales, propuesta Azure, pruebas y guion de video
+database/             Información del modelo y ciclo de vida de la base de datos
+docker/               Dockerfile y Docker Compose
+.env.example          Plantilla de configuración local (sin secretos)
+```
 
 ## Ejecutar con Docker
-1. `cp .env.example .env` y cambia `SA_PASSWORD` (opcional: credenciales de Azure OpenAI).
-2. `docker compose --env-file .env -f docker/docker-compose.yml up --build`
-3. Abrir http://localhost:8080
 
-## Ejecutar sin Docker
-1. Visual Studio / VS Code con .NET 8 SDK y SQL Server LocalDB.
-2. `cd src/RestauranteApp && dotnet run`
+Requiere Docker Desktop y Docker Compose. En PowerShell, desde la raíz:
 
-## Estructura
-`/src` código · `/docs` manuales, pruebas y Azure · `/database` diagrama y scripts · `/docker` Dockerfile y compose
+```powershell
+Copy-Item .env.example .env
+# Edita .env y reemplaza SA_PASSWORD por una clave local segura.
+docker compose --env-file .env -f docker/compose.yaml up --build
+```
 
-## Usuarios demo
-administrador@restaurante.com / Admin123! · mesero@restaurante.com / Mesero123! · cocina@restaurante.com / Cocina123! · cajero@restaurante.com / Cajero123!
+Abre <http://localhost:8080>. La base local conserva datos en un volumen de Docker. Para detenerla, usa `Ctrl+C` y ejecuta `docker compose --env-file .env -f docker/compose.yaml down`.
 
-## Documentación (`/docs`)
-Manual_Instalacion · Manual_Usuario · Manual_Tecnico · Propuesta_Azure · Plan_de_Pruebas · Guion_Video · Guia_Git
+## Ejecutar con .NET
 
+Requiere .NET 8 SDK y un SQL Server disponible. Configura `ConnectionStrings__Default` para ese servidor y ejecuta:
+
+```powershell
+dotnet run --project src/RestauranteApp/RestauranteApp.csproj
+```
+
+## Asistente FAQ y privacidad
+
+El asistente **no usa una IA externa**. Sus respuestas se construyen mediante reglas y consultan únicamente platillos públicos que estén disponibles, su categoría, descripción y precio. No consulta usuarios, pedidos, facturas, pagos ni reportes, y no muestra cantidades exactas de inventario. Para ingredientes/alérgenos, pagos, horarios o ubicación no confirmados, recomienda preguntar al personal.
+
+## Documentación
+
+- [Manual de instalación](docs/Manual_Instalacion.md)
+- [Manual de usuario](docs/Manual_Usuario.md)
+- [Manual técnico](docs/Manual_Tecnico.md)
+- [Propuesta de despliegue Azure](docs/Propuesta_Azure.md)
+- [Plan de pruebas](docs/Plan_de_Pruebas.md)
+- [Guion del video demostrativo](docs/Guion_Video.md)
+- [Modelo y datos de base de datos](database/README.md)
