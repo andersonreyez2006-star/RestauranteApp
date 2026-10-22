@@ -34,7 +34,7 @@ jobs:
           context: .
           push: true
           tags: acrrestaurante2026.azurecr.io/${{ secrets.AZUREAPPSERVICE_CONTAINERUSERNAME_AF273D53FB3C48CDAA4EBF07FEAC1C75 }}/restaurante-app:${{ github.sha }}
-          file: ./Dockerfile
+          file: ./docker/Dockerfile
 
   deploy:
     runs-on: ubuntu-latest

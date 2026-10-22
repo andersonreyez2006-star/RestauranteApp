@@ -7,40 +7,30 @@ namespace RestauranteApp.Services;
 
 public class AsistenteService(AppDbContext db)
 {
-    private sealed record PlatilloMenu(
-        string Nombre,
-        string Categoria,
-        string? Descripcion,
-        decimal Precio,
-        string Estado,
-        int Existencias);
+    private sealed record PlatilloPublico(string Nombre, string Categoria, string? Descripcion, decimal Precio);
 
     public async Task<string> ResponderAsync(string pregunta, CancellationToken cancellationToken)
     {
         var platillos = await db.Platillos
             .AsNoTracking()
             .Include(p => p.Categoria)
+            .Where(p => p.Estado == "Disponible" && p.Existencias > 0 && p.Precio > 0)
             .OrderBy(p => p.Categoria!.Nombre)
             .ThenBy(p => p.Nombre)
-            .Select(p => new PlatilloMenu(
+            .Select(p => new PlatilloPublico(
                 p.Nombre,
                 p.Categoria == null ? "Especialidad" : p.Categoria.Nombre,
                 p.Descripcion,
-                p.Precio,
-                p.Estado,
-                p.Existencias))
+                p.Precio))
             .ToListAsync(cancellationToken);
 
         return RespuestaFrecuente(pregunta, platillos);
     }
 
-    private static string RespuestaFrecuente(string pregunta, IReadOnlyCollection<PlatilloMenu> platillos)
+    private static string RespuestaFrecuente(string pregunta, IReadOnlyCollection<PlatilloPublico> platillos)
     {
         var textoNormalizado = Normalizar(pregunta.Trim().ToLowerInvariant());
-        var menu = platillos.ToList();
-        var disponibles = menu
-            .Where(p => p.Estado.Equals("Disponible", StringComparison.OrdinalIgnoreCase) && p.Existencias > 0)
-            .ToList();
+        var disponibles = platillos.ToList();
 
         if (Contiene(textoNormalizado, "gracias", "muchas gracias", "te agradezco"))
             return "¡Con gusto! ¿Quieres consultar algo más del menú o necesitas ayuda para hacer tu pedido?";
@@ -48,7 +38,7 @@ public class AsistenteService(AppDbContext db)
         if (Contiene(textoNormalizado, "hola", "buenos dias", "buenas tardes", "buenas noches"))
             return "¡Hola! Puedo mostrarte platillos disponibles, precios, categorías y descripciones, o explicarte cómo pedir en mesa. ¿Qué se te antoja?";
 
-        var platilloConsultado = menu.FirstOrDefault(p =>
+        var platilloConsultado = disponibles.FirstOrDefault(p =>
             textoNormalizado.Contains(Normalizar(p.Nombre), StringComparison.Ordinal));
 
         if (platilloConsultado is not null &&
@@ -57,13 +47,12 @@ public class AsistenteService(AppDbContext db)
             var descripcion = string.IsNullOrWhiteSpace(platilloConsultado.Descripcion)
                 ? "No hay una descripción registrada para este platillo."
                 : platilloConsultado.Descripcion;
-            return $"{platilloConsultado.Nombre}: {descripcion} Precio: ${platilloConsultado.Precio:N2}. " +
-                   FormatoDisponibilidad(platilloConsultado);
+            return $"{platilloConsultado.Nombre}: {descripcion} Precio: ${platilloConsultado.Precio:N2}. Actualmente está disponible.";
         }
 
         if (Contiene(textoNormalizado, "categoria", "categorias", "tipo de comida", "tipos de comida"))
         {
-            var categoriaConsultada = menu
+            var categoriaConsultada = disponibles
                 .Select(p => p.Categoria)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .FirstOrDefault(categoria =>
@@ -117,7 +106,7 @@ public class AsistenteService(AppDbContext db)
         if (Contiene(textoNormalizado, "precio", "cuesta", "cuestan", "vale", "valen"))
         {
             return platilloConsultado is not null
-                ? $"{FormatoPlatillo(platilloConsultado)}. {FormatoDisponibilidad(platilloConsultado)} ¿Quieres saber algo más sobre el menú?"
+                ? $"{FormatoPlatillo(platilloConsultado)}. Actualmente está disponible. ¿Quieres saber algo más sobre el menú?"
                 : disponibles.Count == 0
                     ? "Por el momento no hay platillos disponibles. Consulta nuevamente más tarde."
                     : "Estos son los precios actuales: " +
@@ -131,13 +120,13 @@ public class AsistenteService(AppDbContext db)
         if (Contiene(textoNormalizado, "disponible", "disponibilidad", "hay", "existencia", "agotado", "agotada", "tienen"))
         {
             if (platilloConsultado is not null)
-                return $"{platilloConsultado.Nombre}: {FormatoDisponibilidad(platilloConsultado)}";
+                return $"{platilloConsultado.Nombre} está disponible actualmente. ¿Quieres consultar su descripción o precio?";
 
             return disponibles.Count == 0
                 ? "Por el momento no hay platillos disponibles."
                 : "Sí, tenemos estas opciones disponibles: " +
                   string.Join(", ", disponibles.Take(8).Select(FormatoPlatillo)) +
-                  ". Dime el nombre de un platillo si quieres confirmar uno en particular.";
+                  ". Solo muestro las opciones disponibles ahora. Dime el nombre de un platillo para consultar su información.";
         }
 
         if (Contiene(textoNormalizado, "recomienda", "recomendacion", "sugerencia", "sugiere", "que me recomiendas", "que puedo comer"))
@@ -170,16 +159,11 @@ public class AsistenteService(AppDbContext db)
         return "Puedo ayudarte a consultar platillos, precios, disponibilidad, descripciones y categorías, darte algunas sugerencias o explicarte cómo hacer un pedido. ¿Qué te gustaría saber?";
     }
 
-    private static string FormatoPlatillo(PlatilloMenu platillo) =>
+    private static string FormatoPlatillo(PlatilloPublico platillo) =>
         $"{platillo.Nombre} (${platillo.Precio:N2})";
 
-    private static string FormatoDisponibilidad(PlatilloMenu platillo) =>
-        platillo.Estado.Equals("Disponible", StringComparison.OrdinalIgnoreCase) && platillo.Existencias > 0
-            ? $"está disponible ({platillo.Existencias} en existencia)."
-            : "no está disponible por el momento.";
-
     private static string Normalizar(string texto) =>
-        string.Concat(texto.Normalize(NormalizationForm.FormD)
+        string.Concat(texto.ToLowerInvariant().Normalize(NormalizationForm.FormD)
             .Where(caracter => CharUnicodeInfo.GetUnicodeCategory(caracter) != UnicodeCategory.NonSpacingMark))
             .Normalize(NormalizationForm.FormC);
 

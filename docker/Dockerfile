@@ -5,9 +5,9 @@ EXPOSE 8080
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
-COPY ["RestauranteApp.csproj", "./"]
+COPY ["src/RestauranteApp/RestauranteApp.csproj", "./"]
 RUN dotnet restore "RestauranteApp.csproj"
-COPY . .
+COPY src/RestauranteApp/ .
 RUN dotnet publish "RestauranteApp.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
 FROM base AS final
