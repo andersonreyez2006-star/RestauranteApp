@@ -12,7 +12,7 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddDbContext<AppDbContext>(o => o.UseSqlServer(
     builder.Configuration.GetConnectionString("Default"),
     sql => sql.EnableRetryOnFailure(15, TimeSpan.FromSeconds(4), null)));
-builder.Services.AddScoped<AsistenteService>();
+builder.Services.AddHttpClient<AsistenteService>();
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
